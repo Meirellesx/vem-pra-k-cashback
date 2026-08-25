@@ -39,6 +39,79 @@ export const USER_ROLES = {
   cliente: "Cliente",
 };
 
+export const STAFF_ROLES = {
+  admin: "Administrador",
+  manager: "Gerente",
+  cashier: "Operador de Caixa",
+  viewer: "Consulta",
+  operador: "Operador de Caixa",
+  cliente: "Cliente",
+  user: "Usuário",
+};
+
+export const USER_STATUS = {
+  active: { label: "Ativo", color: "bg-green-100 text-green-800 border border-green-300" },
+  blocked: { label: "Bloqueado", color: "bg-red-100 text-red-700 border border-red-300" },
+  pending: { label: "Pendente", color: "bg-yellow-100 text-yellow-800 border border-yellow-300" },
+};
+
+export const STAFF_ROLE_PERMISSIONS = {
+  admin: {
+    label: "Administrador",
+    description: "Acesso completo ao sistema",
+    permissions: [
+      "Gerenciar usuários e funcionários",
+      "Alterar configurações do cashback",
+      "Consultar e exportar relatórios",
+      "Fazer ajustes manuais com justificativa",
+      "Consultar auditoria",
+      "Gerenciar clientes, vendas e movimentações",
+    ],
+  },
+  manager: {
+    label: "Gerente",
+    description: "Supervisão com permissões limitadas",
+    permissions: [
+      "Consultar clientes, vendas, cashback e relatórios",
+      "Registrar cancelamentos e estornos",
+      "Fazer ajustes limitados com justificativa",
+      "Consultar auditoria",
+    ],
+    restrictions: [
+      "Não pode criar ou excluir administradores",
+      "Não pode alterar configurações críticas sem autorização",
+    ],
+  },
+  cashier: {
+    label: "Operador de Caixa",
+    description: "Operação de caixa do dia a dia",
+    permissions: [
+      "Localizar e cadastrar clientes",
+      "Registrar vendas",
+      "Consultar saldo de cashback",
+      "Registrar utilização do cashback",
+      "Consultar extrato do cliente",
+    ],
+    restrictions: [
+      "Não pode alterar regras do programa",
+      "Não pode acessar dados financeiros gerais",
+      "Não pode excluir vendas ou movimentações",
+      "Não pode criar outros usuários",
+    ],
+  },
+  viewer: {
+    label: "Consulta",
+    description: "Somente leitura",
+    permissions: [
+      "Visualizar clientes, vendas e relatórios",
+      "Consultar indicadores autorizados",
+    ],
+    restrictions: [
+      "Não pode registrar, alterar, cancelar ou excluir informações",
+    ],
+  },
+};
+
 export const DEFAULT_SETTINGS = {
   cashback_percentage: 5,
   min_purchase_to_use: 50,

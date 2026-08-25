@@ -5,7 +5,7 @@ import { base44 } from '@/api/base44Client';
 import {
   LayoutDashboard, Users, ShoppingCart, Settings, FileText, Shield,
   BarChart3, LogOut, Menu, X, ChevronRight, Wallet, UserCircle,
-  Bell, Package
+  Bell, Package, UserCog
 } from 'lucide-react';
 
 const LogoMark = () => (
@@ -31,10 +31,31 @@ const navByRole = {
     { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/vendas', label: 'Registrar Venda', icon: ShoppingCart },
     { path: '/cashback', label: 'Consultar Cashback', icon: Wallet },
+    { path: '/usuarios', label: 'Usuários e Funcionários', icon: UserCog },
     { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },
     { path: '/auditoria', label: 'Auditoria', icon: Shield },
     { path: '/configuracoes', label: 'Configurações', icon: Settings },
     { path: '/categorias', label: 'Categorias', icon: Package },
+  ],
+  manager: [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/clientes', label: 'Clientes', icon: Users },
+    { path: '/vendas', label: 'Registrar Venda', icon: ShoppingCart },
+    { path: '/cashback', label: 'Consultar Cashback', icon: Wallet },
+    { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },
+    { path: '/auditoria', label: 'Auditoria', icon: Shield },
+  ],
+  cashier: [
+    { path: '/vendas', label: 'Registrar Venda', icon: ShoppingCart },
+    { path: '/cashback', label: 'Consultar Cashback', icon: Wallet },
+    { path: '/clientes', label: 'Clientes', icon: Users },
+  ],
+  viewer: [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/clientes', label: 'Clientes', icon: Users },
+    { path: '/vendas', label: 'Vendas', icon: ShoppingCart },
+    { path: '/cashback', label: 'Consultar Cashback', icon: Wallet },
+    { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },
   ],
   operador: [
     { path: '/vendas', label: 'Registrar Venda', icon: ShoppingCart },
@@ -45,6 +66,13 @@ const navByRole = {
     { path: '/minha-area', label: 'Minha Área', icon: UserCircle },
     { path: '/extrato', label: 'Extrato', icon: FileText },
     { path: '/regras', label: 'Regras do Programa', icon: Shield },
+  ],
+  user: [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/clientes', label: 'Clientes', icon: Users },
+    { path: '/vendas', label: 'Vendas', icon: ShoppingCart },
+    { path: '/cashback', label: 'Consultar Cashback', icon: Wallet },
+    { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },
   ],
 };
 

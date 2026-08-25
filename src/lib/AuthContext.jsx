@@ -94,10 +94,30 @@ export const AuthProvider = ({ children }) => {
       // Now check if the user is authenticated
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
+
+      // Blocked users cannot access the system
+      if (currentUser.status === 'blocked') {
+        setAuthError({
+          type: 'user_blocked',
+          message: 'Seu acesso foi bloqueado pelo administrador. Entre em contato com o responsável pelo sistema.'
+        });
+        setIsLoadingAuth(false);
+        setIsAuthenticated(false);
+        setAuthChecked(true);
+        return;
+      }
+
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
       setAuthChecked(true);
+
+      // Record last login timestamp for audit purposes
+      try {
+        await base44.auth.updateMe({ last_login_at: new Date().toISOString() });
+      } catch (e) {
+        console.error('Failed to update last_login_at:', e);
+      }
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);

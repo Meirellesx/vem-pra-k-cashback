@@ -24,13 +24,14 @@ import Reports from '@/pages/Reports';
 import Audit from '@/pages/Audit';
 import Settings from '@/pages/Settings';
 import Categories from '@/pages/Categories';
+import Users from '@/pages/Users';
 import CustomerArea from '@/pages/CustomerArea';
 import StatementPage from '@/pages/StatementPage';
 import ProgramRules from '@/pages/ProgramRules';
 import Privacy from '@/pages/Privacy';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, logout } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -46,6 +47,21 @@ const AuthenticatedApp = () => {
     } else if (authError.type === 'auth_required') {
       navigateToLogin();
       return null;
+    } else if (authError.type === 'user_blocked') {
+      return (
+        <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
+          <div className="max-w-md text-center">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl">🔒</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2">Acesso bloqueado</h1>
+            <p className="text-gray-400 mb-6">{authError.message || 'Seu acesso foi bloqueado pelo administrador.'}</p>
+            <button onClick={() => logout()} className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-all">
+              Ir para o login
+            </button>
+          </div>
+        </div>
+      );
     }
   }
 
@@ -68,6 +84,7 @@ const AuthenticatedApp = () => {
           <Route path="/auditoria" element={<Audit />} />
           <Route path="/configuracoes" element={<Settings />} />
           <Route path="/categorias" element={<Categories />} />
+          <Route path="/usuarios" element={<Users />} />
           {/* Customer routes */}
           <Route path="/minha-area" element={<CustomerArea />} />
           <Route path="/extrato" element={<StatementPage />} />
