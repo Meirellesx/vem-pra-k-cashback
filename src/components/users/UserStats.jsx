@@ -24,14 +24,18 @@ export default function UserStats({ users, recentLogs }) {
   const blocked = users.filter(u => getUserStatus(u) === 'blocked').length;
   const pending = users.filter(u => getUserStatus(u) === 'pending').length;
 
-  const byRole = STAFF_ROLES
-    ? Object.entries(STAFF_ROLES)
-        .filter(([key]) => ['admin', 'manager', 'cashier', 'viewer', 'operador'].includes(key))
-        .reduce((acc, [key, label]) => {
-          acc[key] = { label, count: users.filter(u => u.role === key).length };
-          return acc;
-        }, {})
-    : {};
+  const roleGroups = [
+    { key: 'admin', label: 'Administrador' },
+    { key: 'manager', label: 'Gerente' },
+    { key: 'cashier', label: 'Operador de Caixa' },
+    { key: 'viewer', label: 'Consulta' },
+    { key: 'cliente', label: 'Cliente', roles: ['cliente', 'user'] },
+  ];
+
+  const byRole = roleGroups.reduce((acc, g) => {
+    acc[g.key] = { label: g.label, count: users.filter(u => (g.roles || [g.key]).includes(u.role)).length };
+    return acc;
+  }, {});
 
   const recentUsers = [...users]
     .sort((a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0))

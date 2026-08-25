@@ -64,7 +64,9 @@ export default function Users() {
       const email = (u.email || '').toLowerCase();
       const q = search.toLowerCase();
       const matchesSearch = !search || name.includes(q) || email.includes(q);
-      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+      const matchesRole = roleFilter === 'all' ||
+        (roleFilter === 'cliente' && (u.role === 'cliente' || u.role === 'user')) ||
+        u.role === roleFilter;
       const matchesStatus = statusFilter === 'all' || getUserStatus(u) === statusFilter;
       return matchesSearch && matchesRole && matchesStatus;
     });
@@ -248,6 +250,7 @@ export default function Users() {
             <option value="manager">Gerente</option>
             <option value="cashier">Operador de Caixa</option>
             <option value="viewer">Consulta</option>
+            <option value="cliente">Cliente</option>
             <option value="operador">Operador (legado)</option>
           </select>
           <select
@@ -404,7 +407,8 @@ export default function Users() {
 function RoleMenu({ user, currentUserId, onRoleChange }) {
   const [open, setOpen] = useState(false);
   const isSelf = user.id === currentUserId;
-  const roleOptions = ['admin', 'manager', 'cashier', 'viewer'];
+  const roleOptions = ['admin', 'manager', 'cashier', 'viewer', 'cliente'];
+  const currentRoleKey = user.role === 'user' ? 'cliente' : user.role;
 
   return (
     <div className="relative">
@@ -427,15 +431,15 @@ function RoleMenu({ user, currentUserId, onRoleChange }) {
                 key={r}
                 onClick={() => {
                   setOpen(false);
-                  if (r !== user.role) onRoleChange(r);
+                  if (r !== currentRoleKey) onRoleChange(r);
                 }}
-                disabled={r === user.role}
+                disabled={r === currentRoleKey}
                 className={`w-full text-left px-3 py-1.5 text-xs hover:bg-orange-50 transition-colors flex items-center justify-between ${
-                  r === user.role ? 'text-gray-400 cursor-default' : 'text-gray-700'
+                  r === currentRoleKey ? 'text-gray-400 cursor-default' : 'text-gray-700'
                 }`}
               >
                 <span>{STAFF_ROLES[r]}</span>
-                {r === user.role && <CheckCircle className="w-3 h-3 text-orange-500" />}
+                {r === currentRoleKey && <CheckCircle className="w-3 h-3 text-orange-500" />}
               </button>
             ))}
             {isSelf && (

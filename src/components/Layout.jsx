@@ -68,11 +68,9 @@ const navByRole = {
     { path: '/regras', label: 'Regras do Programa', icon: Shield },
   ],
   user: [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/clientes', label: 'Clientes', icon: Users },
-    { path: '/vendas', label: 'Vendas', icon: ShoppingCart },
-    { path: '/cashback', label: 'Consultar Cashback', icon: Wallet },
-    { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },
+    { path: '/minha-area', label: 'Minha Área', icon: UserCircle },
+    { path: '/extrato', label: 'Extrato', icon: FileText },
+    { path: '/regras', label: 'Regras do Programa', icon: Shield },
   ],
 };
 

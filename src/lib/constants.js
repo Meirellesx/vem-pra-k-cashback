@@ -46,7 +46,7 @@ export const STAFF_ROLES = {
   viewer: "Consulta",
   operador: "Operador de Caixa",
   cliente: "Cliente",
-  user: "Usuário",
+  user: "Cliente",
 };
 
 export const USER_STATUS = {

@@ -2,7 +2,7 @@ import { base44 } from '@/api/base44Client';
 import { createAuditLog } from './cashbackUtils';
 import { STAFF_ROLES } from './constants';
 
-const STAFF_ROLE_KEYS = ['admin', 'manager', 'cashier', 'viewer', 'operador'];
+const STAFF_ROLE_KEYS = ['admin', 'manager', 'cashier', 'viewer', 'operador', 'user', 'cliente'];
 
 export const isAdmin = (user) => user?.role === 'admin';
 

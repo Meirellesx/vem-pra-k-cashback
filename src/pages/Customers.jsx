@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatPhone, generateIdentifierCode, createAuditLog, exportToCSV } from '@/lib/cashbackUtils';
 import { Search, Plus, Download, User, Phone, Wallet, Clock, Edit2, X, Check } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 function CustomerModal({ customer, onClose, onSave }) {
   const [form, setForm] = useState(customer || { name: '', phone: '', email: '', cpf: '', accepts_promotions: false });
@@ -10,6 +11,7 @@ function CustomerModal({ customer, onClose, onSave }) {
 
   const handleSave = async () => {
     if (!form.name || !form.phone) return;
+    if (!customer && !form.email) return;
     setSaving(true);
     onSave(form);
   };
@@ -34,9 +36,15 @@ function CustomerModal({ customer, onClose, onSave }) {
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">E-mail</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              E-mail {!customer && <span className="text-orange-500">*</span>}
+            </label>
             <input type="email" value={form.email || ''} onChange={e => setForm({...form, email: e.target.value})}
+              placeholder="email@exemplo.com"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+            {!customer && (
+              <p className="text-xs text-orange-600 mt-1">O cliente receberá um e-mail para criar sua senha e acessar a plataforma.</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">CPF</label>
@@ -52,7 +60,7 @@ function CustomerModal({ customer, onClose, onSave }) {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving || !form.name || !form.phone}
+          <button onClick={handleSave} disabled={saving || !form.name || !form.phone || (!customer && !form.email)}
             className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-xl text-sm font-bold">
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
@@ -64,6 +72,7 @@ function CustomerModal({ customer, onClose, onSave }) {
 
 export default function Customers() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -90,10 +99,29 @@ export default function Customers() {
       if (editCustomer) {
         await base44.entities.Customer.update(editCustomer.id, form);
         await createAuditLog(user, 'update_customer', 'Customer', editCustomer.id, `Cliente atualizado: ${form.name}`, '', editCustomer, form);
+        if (form.email && form.email !== editCustomer.email) {
+          try {
+            await base44.users.inviteUser(form.email, 'cliente');
+            toast({ title: 'Convite enviado', description: `Convite enviado para ${form.email}.` });
+          } catch (inviteErr) {
+            console.error('Invite error:', inviteErr);
+          }
+        }
       } else {
         const code = generateIdentifierCode(form.name, form.phone);
         await base44.entities.Customer.create({ ...form, identifier_code: code, available_balance: 0, pending_balance: 0, total_cashback_earned: 0, total_cashback_used: 0, is_demo: false });
         await createAuditLog(user, 'create_customer', 'Customer', '', `Novo cliente cadastrado: ${form.name}`, '', null, form);
+        if (form.email) {
+          try {
+            await base44.users.inviteUser(form.email, 'cliente');
+            toast({ title: 'Cliente cadastrado', description: `Convite enviado para ${form.email}.` });
+          } catch (inviteErr) {
+            console.error('Invite error:', inviteErr);
+            toast({ title: 'Cliente cadastrado', description: 'E-mail pode já estar cadastrado — o cliente não receberá novo convite.', variant: 'destructive' });
+          }
+        } else {
+          toast({ title: 'Cliente cadastrado', description: 'Sem e-mail informado — convite não enviado.' });
+        }
       }
       setModal(null);
       setEditCustomer(null);

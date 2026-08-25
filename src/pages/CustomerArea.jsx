@@ -27,7 +27,10 @@ export default function CustomerArea() {
 
       if (!user?.id) { setLoading(false); return; }
       const all = await base44.entities.Customer.list('-created_date', 500);
-      const mine = all.find(c => c.created_by_id === user.id);
+      const mine = all.find(c =>
+        (c.email && user.email && c.email.toLowerCase() === user.email.toLowerCase()) ||
+        c.created_by_id === user.id
+      );
       if (mine) {
         setCustomer(mine);
         const txs = await base44.entities.CashbackTransaction.filter({ customer_id: mine.id });
