@@ -1,0 +1,55 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string",
+      "title": "ID do cliente"
+    },
+    "customer_name": {
+      "type": "string",
+      "title": "Nome do cliente"
+    },
+    "title": {
+      "type": "string",
+      "title": "T\u00edtulo"
+    },
+    "message": {
+      "type": "string",
+      "title": "Mensagem"
+    },
+    "type": {
+      "type": "string",
+      "title": "Tipo",
+      "enum": [
+        "cashback_gerado",
+        "cashback_liberado",
+        "cashback_expirado",
+        "cashback_utilizado",
+        "promocional",
+        "sistema"
+      ]
+    },
+    "is_read": {
+      "type": "boolean",
+      "title": "Lida",
+      "default": false
+    },
+    "sent_date": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data de envio"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "title": "Dados de demonstra\u00e7\u00e3o",
+      "default": false
+    }
+  },
+  "required": [
+    "customer_id",
+    "title",
+    "message",
+    "type"
+  ]
+}

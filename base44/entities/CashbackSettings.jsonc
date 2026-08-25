@@ -1,0 +1,53 @@
+{
+  "name": "CashbackSettings",
+  "type": "object",
+  "properties": {
+    "cashback_percentage": {
+      "type": "number",
+      "title": "Percentual de cashback (%)",
+      "default": 5
+    },
+    "min_purchase_to_use": {
+      "type": "number",
+      "title": "Valor m\u00ednimo de compra para utilizar cashback",
+      "default": 50
+    },
+    "max_cashback_payment_percentage": {
+      "type": "number",
+      "title": "Percentual m\u00e1ximo da compra que pode ser pago com cashback (%)",
+      "default": 50
+    },
+    "release_days": {
+      "type": "number",
+      "title": "Prazo para libera\u00e7\u00e3o do cashback (dias)",
+      "default": 0
+    },
+    "balance_validity_days": {
+      "type": "number",
+      "title": "Validade do saldo (dias)",
+      "default": 365
+    },
+    "is_active": {
+      "type": "boolean",
+      "title": "Programa ativo",
+      "default": true
+    },
+    "program_name": {
+      "type": "string",
+      "title": "Nome do programa",
+      "default": "Vem Pra K Cashback"
+    },
+    "terms_text": {
+      "type": "string",
+      "title": "Texto dos termos e condi\u00e7\u00f5es"
+    },
+    "privacy_text": {
+      "type": "string",
+      "title": "Texto da pol\u00edtica de privacidade"
+    },
+    "updated_by": {
+      "type": "string",
+      "title": "Atualizado por"
+    }
+  }
+}

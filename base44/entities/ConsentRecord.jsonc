@@ -1,0 +1,45 @@
+{
+  "name": "ConsentRecord",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string",
+      "title": "ID do cliente"
+    },
+    "customer_name": {
+      "type": "string",
+      "title": "Nome do cliente"
+    },
+    "consent_type": {
+      "type": "string",
+      "title": "Tipo de consentimento",
+      "enum": [
+        "termos_uso",
+        "politica_privacidade",
+        "comunicacoes_promocionais"
+      ]
+    },
+    "accepted": {
+      "type": "boolean",
+      "title": "Aceito"
+    },
+    "consent_date": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data do consentimento"
+    },
+    "ip_address": {
+      "type": "string",
+      "title": "IP"
+    },
+    "version": {
+      "type": "string",
+      "title": "Vers\u00e3o do documento"
+    }
+  },
+  "required": [
+    "customer_id",
+    "consent_type",
+    "accepted"
+  ]
+}

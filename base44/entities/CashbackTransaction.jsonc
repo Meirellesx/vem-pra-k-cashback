@@ -1,0 +1,93 @@
+{
+  "name": "CashbackTransaction",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string",
+      "title": "ID do cliente"
+    },
+    "customer_name": {
+      "type": "string",
+      "title": "Nome do cliente"
+    },
+    "sale_id": {
+      "type": "string",
+      "title": "ID da venda"
+    },
+    "sale_number": {
+      "type": "string",
+      "title": "N\u00famero da venda"
+    },
+    "amount": {
+      "type": "number",
+      "title": "Valor"
+    },
+    "type": {
+      "type": "string",
+      "title": "Tipo",
+      "enum": [
+        "gerado",
+        "liberado",
+        "utilizado",
+        "expirado",
+        "cancelado",
+        "ajuste_manual"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "pendente",
+        "disponivel",
+        "usado",
+        "expirado",
+        "cancelado"
+      ],
+      "default": "pendente"
+    },
+    "transaction_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data da transa\u00e7\u00e3o"
+    },
+    "available_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de disponibiliza\u00e7\u00e3o"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de expira\u00e7\u00e3o"
+    },
+    "reference_transaction_id": {
+      "type": "string",
+      "title": "ID da transa\u00e7\u00e3o de refer\u00eancia"
+    },
+    "operator_id": {
+      "type": "string",
+      "title": "ID do operador"
+    },
+    "justification": {
+      "type": "string",
+      "title": "Justificativa (ajustes manuais)"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "title": "Dados de demonstra\u00e7\u00e3o",
+      "default": false
+    },
+    "notes": {
+      "type": "string",
+      "title": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "customer_id",
+    "amount",
+    "type",
+    "status",
+    "transaction_date"
+  ]
+}

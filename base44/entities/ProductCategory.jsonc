@@ -1,0 +1,36 @@
+{
+  "name": "ProductCategory",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome da categoria"
+    },
+    "generates_cashback": {
+      "type": "boolean",
+      "title": "Gera cashback",
+      "default": true
+    },
+    "can_use_cashback": {
+      "type": "boolean",
+      "title": "Permite uso de cashback",
+      "default": true
+    },
+    "cashback_percentage_override": {
+      "type": "number",
+      "title": "Percentual espec\u00edfico (deixe em branco para usar o padr\u00e3o)"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descri\u00e7\u00e3o"
+    },
+    "is_active": {
+      "type": "boolean",
+      "title": "Ativa",
+      "default": true
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

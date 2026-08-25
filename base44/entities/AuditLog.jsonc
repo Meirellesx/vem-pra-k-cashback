@@ -1,0 +1,59 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "title": "ID do usu\u00e1rio"
+    },
+    "user_name": {
+      "type": "string",
+      "title": "Nome do usu\u00e1rio"
+    },
+    "user_role": {
+      "type": "string",
+      "title": "Perfil do usu\u00e1rio"
+    },
+    "action": {
+      "type": "string",
+      "title": "A\u00e7\u00e3o"
+    },
+    "entity_type": {
+      "type": "string",
+      "title": "Tipo de entidade"
+    },
+    "entity_id": {
+      "type": "string",
+      "title": "ID da entidade"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descri\u00e7\u00e3o"
+    },
+    "justification": {
+      "type": "string",
+      "title": "Justificativa"
+    },
+    "before_data": {
+      "type": "string",
+      "title": "Dados antes"
+    },
+    "after_data": {
+      "type": "string",
+      "title": "Dados depois"
+    },
+    "ip_address": {
+      "type": "string",
+      "title": "IP"
+    },
+    "is_demo": {
+      "type": "boolean",
+      "title": "Dados de demonstra\u00e7\u00e3o",
+      "default": false
+    }
+  },
+  "required": [
+    "action",
+    "description"
+  ]
+}
