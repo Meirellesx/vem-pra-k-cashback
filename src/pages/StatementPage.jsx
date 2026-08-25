@@ -1,0 +1,126 @@
+import React, { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
+import { formatCurrency, formatDate, exportToCSV } from '@/lib/cashbackUtils';
+import { FileText, Download, Filter } from 'lucide-react';
+import StatusBadge from '@/components/ui/StatusBadge';
+
+export default function StatementPage() {
+  const { user } = useAuth();
+  const [customer, setCustomer] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterType, setFilterType] = useState('');
+
+  useEffect(() => { loadData(); }, [user]);
+
+  const loadData = async () => {
+    setLoading(true);
+    const all = await base44.entities.Customer.list('-created_date', 500);
+    const mine = all.find(c => c.created_by_id === user?.id);
+    if (mine) {
+      setCustomer(mine);
+      const txs = await base44.entities.CashbackTransaction.filter({ customer_id: mine.id });
+      setTransactions(txs.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date)));
+    }
+    setLoading(false);
+  };
+
+  const filtered = transactions.filter(t =>
+    (!filterStatus || t.status === filterStatus) &&
+    (!filterType || t.type === filterType)
+  );
+
+  const handleExport = () => {
+    exportToCSV(filtered, 'extrato.csv', [
+      { key: 'sale_number', label: 'Venda' },
+      { key: 'type', label: 'Tipo' },
+      { key: 'status', label: 'Status' },
+      { key: 'amount', label: 'Valor' },
+      { key: 'transaction_date', label: 'Data' },
+      { key: 'available_date', label: 'Disponível em' },
+      { key: 'expiry_date', label: 'Expira em' },
+    ]);
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-40">
+      <div className="w-8 h-8 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+    </div>
+  );
+
+  return (
+    <div className="p-4 md:p-8 max-w-2xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">Extrato Completo</h1>
+          {customer && (
+            <div className="flex gap-4 mt-2 text-sm">
+              <span className="text-green-600 font-bold">Disponível: {formatCurrency(customer.available_balance)}</span>
+              <span className="text-yellow-600 font-bold">Pendente: {formatCurrency(customer.pending_balance)}</span>
+            </div>
+          )}
+        </div>
+        <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50">
+          <Download className="w-3.5 h-3.5" /> CSV
+        </button>
+      </div>
+
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          className="px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs bg-white">
+          <option value="">Todos os status</option>
+          <option value="pendente">Pendente</option>
+          <option value="disponivel">Disponível</option>
+          <option value="usado">Usado</option>
+          <option value="expirado">Expirado</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+        <select value={filterType} onChange={e => setFilterType(e.target.value)}
+          className="px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs bg-white">
+          <option value="">Todos os tipos</option>
+          <option value="gerado">Gerado</option>
+          <option value="liberado">Liberado</option>
+          <option value="utilizado">Utilizado</option>
+          <option value="expirado">Expirado</option>
+          <option value="cancelado">Cancelado</option>
+          <option value="ajuste_manual">Ajuste Manual</option>
+        </select>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {filtered.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <FileText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">Nenhuma movimentação encontrada</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {filtered.map(tx => (
+              <div key={tx.id} className="px-4 py-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm text-gray-900 capitalize">{tx.type?.replace('_', ' ')}</span>
+                      <StatusBadge status={tx.status} />
+                    </div>
+                    <div className="text-xs text-gray-400 space-y-0.5">
+                      <div>{formatDate(tx.transaction_date)}{tx.sale_number ? ` · Venda #${tx.sale_number}` : ''}</div>
+                      {tx.available_date && <div>Disponível em: {formatDate(tx.available_date)}</div>}
+                      {tx.expiry_date && <div>Expira em: {formatDate(tx.expiry_date)}</div>}
+                      {tx.justification && <div className="text-purple-600">Justificativa: {tx.justification}</div>}
+                    </div>
+                  </div>
+                  <span className={`font-black text-base ${tx.amount > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                    {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
