@@ -6,6 +6,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --background: 0 0% 97%;
     --foreground: 0 0% 8%;
     --card: 0 0% 100%;
@@ -126,6 +127,7 @@ code, pre, [data-selectable] {
 /* ===== System Dark Mode (prefers-color-scheme) ===== */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
+    color-scheme: dark;
     --background: 220 13% 9%;
     --foreground: 220 13% 92%;
     --card: 220 13% 13%;
