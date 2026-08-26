@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/cashbackUtils';
 import { FileText, Download, Filter } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
+import DrawerSelect from '@/components/mobile/DrawerSelect';
 
 export default function StatementPage() {
   const { user } = useAuth();
@@ -68,25 +69,35 @@ export default function StatementPage() {
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs bg-white">
-          <option value="">Todos os status</option>
-          <option value="pendente">Pendente</option>
-          <option value="disponivel">Disponível</option>
-          <option value="usado">Usado</option>
-          <option value="expirado">Expirado</option>
-          <option value="cancelado">Cancelado</option>
-        </select>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs bg-white">
-          <option value="">Todos os tipos</option>
-          <option value="gerado">Gerado</option>
-          <option value="liberado">Liberado</option>
-          <option value="utilizado">Utilizado</option>
-          <option value="expirado">Expirado</option>
-          <option value="cancelado">Cancelado</option>
-          <option value="ajuste_manual">Ajuste Manual</option>
-        </select>
+        <DrawerSelect
+          value={filterStatus}
+          onChange={setFilterStatus}
+          label="Filtrar por status"
+          placeholder="Todos os status"
+          options={[
+            { value: '', label: 'Todos os status' },
+            { value: 'pendente', label: 'Pendente' },
+            { value: 'disponivel', label: 'Disponível' },
+            { value: 'usado', label: 'Usado' },
+            { value: 'expirado', label: 'Expirado' },
+            { value: 'cancelado', label: 'Cancelado' },
+          ]}
+        />
+        <DrawerSelect
+          value={filterType}
+          onChange={setFilterType}
+          label="Filtrar por tipo"
+          placeholder="Todos os tipos"
+          options={[
+            { value: '', label: 'Todos os tipos' },
+            { value: 'gerado', label: 'Gerado' },
+            { value: 'liberado', label: 'Liberado' },
+            { value: 'utilizado', label: 'Utilizado' },
+            { value: 'expirado', label: 'Expirado' },
+            { value: 'cancelado', label: 'Cancelado' },
+            { value: 'ajuste_manual', label: 'Ajuste Manual' },
+          ]}
+        />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

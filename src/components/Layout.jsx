@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { base44 } from '@/api/base44Client';
 import {
   LayoutDashboard, Users, ShoppingCart, Settings, FileText, Shield,
   BarChart3, LogOut, Menu, X, ChevronRight, Wallet, UserCircle,
   Bell, Package, UserCog
 } from 'lucide-react';
+import MobileNav from '@/components/mobile/MobileNav';
+import MobileHeader from '@/components/mobile/MobileHeader';
 
 const LogoMark = () => (
   <div className="flex items-center gap-2">
@@ -14,9 +17,7 @@ const LogoMark = () => (
       src="https://media.base44.com/files/public/user_68df03321ddb88e340d96028/9df156de3_Logo.pdf"
       alt="Vem Pra K"
       className="h-10 w-10 object-contain"
-      onError={(e) => {
-        e.target.style.display = 'none';
-      }}
+      onError={(e) => { e.target.style.display = 'none'; }}
     />
     <div>
       <div className="text-white font-black text-sm leading-tight">VEM PRA K</div>
@@ -77,15 +78,14 @@ const navByRole = {
 export default function Layout() {
   const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const role = user?.role || 'cliente';
   const navItems = navByRole[role] || navByRole.cliente;
+  const isCustomer = role === 'cliente' || role === 'user';
 
-  const handleLogout = () => {
-    base44.auth.logout('/login');
-  };
+  const handleLogout = () => { base44.auth.logout('/login'); };
 
   const NavLink = ({ item }) => {
     const Icon = item.icon;
@@ -107,16 +107,14 @@ export default function Layout() {
     );
   };
 
-  const Sidebar = ({ mobile }) => (
-    <div className={`flex flex-col h-full ${mobile ? '' : ''}`}>
+  const Sidebar = () => (
+    <div className="flex flex-col h-full">
       <div className="p-5 border-b border-white/10">
         <LogoMark />
       </div>
-
       <div className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map(item => <NavLink key={item.path} item={item} />)}
       </div>
-
       <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-3 mb-3 px-2">
           <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-sm">
@@ -145,37 +143,49 @@ export default function Layout() {
         <Sidebar />
       </div>
 
-      {/* Mobile sidebar */}
-      {sidebarOpen && (
+      {/* Mobile staff drawer (non-customer roles) */}
+      {!isCustomer && sidebarOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
           <div className="relative w-72 bg-[#0A0A0A] flex flex-col shadow-2xl">
             <button
               onClick={() => setSidebarOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white p-1"
+              className="absolute top-4 right-4 text-gray-400 hover:text-white p-1 z-10"
             >
               <X className="w-5 h-5" />
             </button>
-            <Sidebar mobile />
+            <Sidebar />
           </div>
         </div>
       )}
 
-      {/* Main content */}
+      {/* Main content column */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile header */}
-        <div className="md:hidden bg-[#0A0A0A] px-4 py-3 flex items-center justify-between">
-          <LogoMark />
-          <button onClick={() => setSidebarOpen(true)} className="text-white p-1">
-            <Menu className="w-6 h-6" />
-          </button>
-        </div>
+        {/* Mobile top bar */}
+        {isCustomer ? (
+          <MobileHeader />
+        ) : (
+          <div
+            className="md:hidden bg-[#0A0A0A] px-4 py-3 flex items-center justify-between"
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}
+          >
+            <LogoMark />
+            <button onClick={() => setSidebarOpen(true)} className="text-white p-1">
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
+        )}
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main
+          className="flex-1 overflow-y-auto"
+          style={isCustomer && isMobile ? { paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' } : undefined}
+        >
           <Outlet />
         </main>
       </div>
+
+      {/* Mobile bottom navigation (customer roles only) */}
+      {isCustomer && <MobileNav />}
     </div>
   );
 }

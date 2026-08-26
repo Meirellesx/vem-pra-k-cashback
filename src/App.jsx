@@ -30,6 +30,7 @@ import CustomerArea from '@/pages/CustomerArea';
 import StatementPage from '@/pages/StatementPage';
 import ProgramRules from '@/pages/ProgramRules';
 import Privacy from '@/pages/Privacy';
+import MeuCodigo from '@/pages/MeuCodigo';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, logout } = useAuth();
@@ -91,6 +92,7 @@ const AuthenticatedApp = () => {
           <Route path="/extrato" element={<StatementPage />} />
           <Route path="/regras" element={<ProgramRules />} />
           <Route path="/privacidade" element={<Privacy />} />
+          <Route path="/meu-codigo" element={<MeuCodigo />} />
         </Route>
       </Route>
 

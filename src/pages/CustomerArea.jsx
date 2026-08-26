@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone } from '@/lib/cashbackUtils';
-import { Wallet, Clock, QrCode, User, Check, ShoppingBag } from 'lucide-react';
+import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
+import DeleteAccountModal from '@/components/customer/DeleteAccountModal';
 
 export default function CustomerArea() {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export default function CustomerArea() {
   const [setupForm, setSetupForm] = useState({ name: user?.full_name || '', phone: '' });
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState(null);
+  const [showDelete, setShowDelete] = useState(false);
 
   useEffect(() => { loadData(); }, [user]);
 
@@ -115,23 +117,6 @@ export default function CustomerArea() {
     );
   }
 
-  const QRCode = () => (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
-      <div className="w-40 h-40 bg-[#0A0A0A] mx-auto rounded-2xl flex flex-col items-center justify-center mb-3 p-4">
-        <div className="grid grid-cols-3 gap-1 w-full mb-2">
-          {Array.from({length: 9}).map((_, i) => (
-            <div key={i} className={`h-4 rounded-sm ${[0,2,6,8,4].includes(i) ? 'bg-orange-500' : 'bg-white'}`} />
-          ))}
-        </div>
-        <div className="text-white font-mono text-xs font-bold mt-1">{customer.identifier_code}</div>
-      </div>
-      <p className="text-sm text-gray-500 mb-2">Apresente este código no caixa</p>
-      <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-        <span className="font-mono font-black text-orange-600 text-xl tracking-widest">{customer.identifier_code}</span>
-      </div>
-    </div>
-  );
-
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto">
       {/* Header */}
@@ -164,7 +149,7 @@ export default function CustomerArea() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5">
-        {[['saldo', 'Saldo'], ['historico', 'Compras'], ['extrato', 'Cashback'], ['qr', 'Meu Código']].map(([v, l]) => (
+        {[['saldo', 'Saldo'], ['historico', 'Compras'], ['extrato', 'Cashback'], ['conta', 'Conta']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${tab === v ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
             {l}
@@ -266,7 +251,35 @@ export default function CustomerArea() {
         </div>
       )}
 
-      {tab === 'qr' && <QRCode />}
+      {tab === 'conta' && (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-900 mb-3">Minha Conta</h3>
+          <div className="space-y-2 text-sm mb-5">
+            <div className="flex justify-between py-2 border-b border-gray-50">
+              <span className="text-gray-500">Nome</span>
+              <span className="font-semibold">{customer.name}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-gray-50">
+              <span className="text-gray-500">Telefone</span>
+              <span className="font-semibold">{formatPhone(customer.phone)}</span>
+            </div>
+            {customer.email && (
+              <div className="flex justify-between py-2 border-b border-gray-50">
+                <span className="text-gray-500">E-mail</span>
+                <span className="font-semibold text-xs">{customer.email}</span>
+              </div>
+            )}
+          </div>
+          <div className="border-t border-gray-100 pt-4">
+            <button onClick={() => setShowDelete(true)}
+              className="flex items-center gap-2 text-red-600 text-sm font-semibold hover:text-red-700">
+              <AlertTriangle className="w-4 h-4" /> Excluir minha conta
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDelete && <DeleteAccountModal customer={customer} onClose={() => setShowDelete(false)} />}
     </div>
   );
 }

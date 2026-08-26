@@ -82,3 +82,64 @@
 ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb { background: #FF6B00; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #CC5500; }
+
+/* ===== Safe Area (iOS / notch) ===== */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+.safe-top-bottom { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+
+/* ===== Web UX Polish (iOS WebView) ===== */
+html { -webkit-tap-highlight-color: transparent; }
+body {
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, select, [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Hide scrollbars on mobile */
+@media (max-width: 767px) {
+  ::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+}
+
+/* Vaul drawer safe area */
+.vaul-drawer__content > div:first-child { margin-bottom: env(safe-area-inset-bottom); }
+
+/* ===== System Dark Mode (prefers-color-scheme) ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: 220 13% 9%;
+    --foreground: 220 13% 92%;
+    --card: 220 13% 13%;
+    --card-foreground: 220 13% 92%;
+    --popover: 220 13% 13%;
+    --popover-foreground: 220 13% 92%;
+    --primary: 24 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 13% 18%;
+    --secondary-foreground: 220 13% 92%;
+    --muted: 220 13% 17%;
+    --muted-foreground: 220 10% 62%;
+    --accent: 24 30% 20%;
+    --accent-foreground: 24 100% 85%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 22%;
+    --input: 220 13% 22%;
+    --ring: 24 100% 50%;
+  }
+  :root:not(.light) .bg-gray-50 { background-color: hsl(220 13% 9%); }
+  :root:not(.light) .bg-white { background-color: hsl(220 13% 13%); }
+  :root:not(.light) .text-gray-900 { color: hsl(220 13% 95%); }
+  :root:not(.light) .text-gray-700 { color: hsl(220 10% 80%); }
+  :root:not(.light) .text-gray-500 { color: hsl(220 10% 65%); }
+  :root:not(.light) .text-gray-400 { color: hsl(220 10% 58%); }
+  :root:not(.light) .border-gray-100 { border-color: hsl(220 13% 20%); }
+  :root:not(.light) .border-gray-200 { border-color: hsl(220 13% 22%); }
+  :root:not(.light) .divide-gray-50 > * { border-color: hsl(220 13% 18%); }
+}
