@@ -21,6 +21,8 @@ export default function CashbackLookup() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [redeeming, setRedeeming] = useState(false);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [verifyError, setVerifyError] = useState('');
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -36,7 +38,9 @@ export default function CashbackLookup() {
     const all = await base44.entities.Customer.list('-created_date', 100);
     const results = all.filter(c => !c.is_demo && c.is_active !== false && (
       c.name?.toLowerCase().includes(q.toLowerCase()) ||
-      (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned))
+      c.email?.toLowerCase().includes(q.toLowerCase()) ||
+      (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned)) ||
+      (c.identifier_code && c.identifier_code.toLowerCase().includes(q.toLowerCase()))
     ));
     setSearchResults(results.slice(0, 5));
   };
@@ -92,8 +96,13 @@ export default function CashbackLookup() {
   };
 
   const handleRedeemConfirm = async () => {
+    if (verifyCode.trim().toUpperCase() !== (customer.identifier_code || '').toUpperCase()) {
+      setVerifyError('Código de verificação incorreto. Peça ao cliente o código correto.');
+      return;
+    }
     setRedeeming(true);
     setError('');
+    setVerifyError('');
     try {
       const amount = parseFloat(redeemAmount);
       const saleTotal = parseFloat(redeemSaleTotal);
@@ -153,6 +162,22 @@ export default function CashbackLookup() {
       setRedeemAmount('');
       setRedeemSaleNumber('');
       setRedeemSaleTotal('');
+      setVerifyCode('');
+      setVerifyError('');
+
+      // Notifica o cliente por e-mail sobre o valor resgatado
+      if (customer.email) {
+        try {
+          const newBalance = Math.max(0, (customer.available_balance || 0) - amount);
+          await base44.integrations.Core.SendEmail({
+            to: customer.email,
+            subject: `Cashback utilizado — ${formatCurrency(amount)}`,
+            body: `Olá ${customer.name},\n\nVocê utilizou ${formatCurrency(amount)} de cashback na venda #${redeemSaleNumber}.\nValor da compra: ${formatCurrency(saleTotal)}.\n\nNovo saldo disponível: ${formatCurrency(newBalance)}.\n\nObrigado por participar do Vem Pra K Cashback!`,
+          });
+        } catch (emailErr) {
+          console.error('Email notification error:', emailErr);
+        }
+      }
 
       // Refresh customer
       const updated = await base44.entities.Customer.get(customer.id);
@@ -177,7 +202,7 @@ export default function CashbackLookup() {
         <div className="relative mb-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={search} onChange={e => handleSearch(e.target.value)}
-            placeholder="Buscar cliente por nome ou telefone..."
+            placeholder="Buscar por nome, telefone, e-mail ou código..."
             className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
         </div>
         {searchResults.length > 0 && (
@@ -269,8 +294,9 @@ export default function CashbackLookup() {
           {confirmRedeem && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-                <h3 className="font-black text-lg mb-4">Confirmar utilização?</h3>
-                <div className="space-y-2 text-sm mb-5">
+                <h3 className="font-black text-lg mb-2">Confirmar utilização</h3>
+                <p className="text-gray-500 text-sm mb-4">Confirme os dados e peça o código de verificação do cliente.</p>
+                <div className="space-y-2 text-sm mb-4">
                   <div className="flex justify-between py-1.5 border-b border-gray-100">
                     <span className="text-gray-500">Cliente</span><span className="font-semibold">{customer.name}</span>
                   </div>
@@ -280,12 +306,20 @@ export default function CashbackLookup() {
                   <div className="flex justify-between py-1.5 border-b border-gray-100">
                     <span className="text-gray-500">Valor da compra</span><span className="font-semibold">{formatCurrency(parseFloat(redeemSaleTotal))}</span>
                   </div>
-                  <div className="flex justify-between py-1.5">
+                  <div className="flex justify-between py-1.5 border-b border-gray-100">
                     <span className="text-gray-500">Cashback a usar</span><span className="font-black text-orange-600 text-lg">- {formatCurrency(parseFloat(redeemAmount))}</span>
                   </div>
                 </div>
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4">
+                  <label className="block text-xs font-semibold text-orange-700 mb-1.5 uppercase tracking-wide">Código de Verificação *</label>
+                  <input value={verifyCode} onChange={e => setVerifyCode(e.target.value.toUpperCase())}
+                    placeholder="Digite ou escaneie o código"
+                    className="w-full px-4 py-3 border border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-mono uppercase tracking-wider" />
+                  <p className="text-xs text-orange-600 mt-1">Peça ao cliente o código do app (Minha Área) ou escaneie o QR code.</p>
+                  {verifyError && <p className="text-xs text-red-600 mt-1 font-semibold">⚠️ {verifyError}</p>}
+                </div>
                 <div className="flex gap-3">
-                  <button onClick={() => setConfirmRedeem(false)} className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-semibold">Voltar</button>
+                  <button onClick={() => { setConfirmRedeem(false); setVerifyError(''); }} className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-semibold">Voltar</button>
                   <button onClick={handleRedeemConfirm} disabled={redeeming}
                     className="flex-1 py-3 bg-orange-500 text-white font-bold rounded-xl text-sm disabled:opacity-60">
                     {redeeming ? 'Processando...' : 'Confirmar'}

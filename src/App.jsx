@@ -8,6 +8,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
+import HomeRedirect from '@/components/HomeRedirect';
 
 // Auth pages
 import Login from '@/pages/Login';
@@ -75,7 +76,7 @@ const AuthenticatedApp = () => {
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<Layout />}>
           {/* Admin & Operator routes */}
-          <Route path="/" element={<Navigate to="/minha-area" replace />} />
+          <Route path="/" element={<HomeRedirect />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/clientes" element={<Customers />} />
           <Route path="/vendas" element={<Sales />} />
