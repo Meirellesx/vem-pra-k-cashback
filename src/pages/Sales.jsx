@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback
 import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag } from 'lucide-react';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
+import QuickCustomerSearch from '@/components/sales/QuickCustomerSearch';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -227,6 +228,10 @@ export default function Sales() {
         <h1 className="text-2xl font-black text-gray-900">Registrar Venda</h1>
         <p className="text-gray-500 text-sm">Tela do operador de caixa</p>
       </div>
+
+      {step === 'search' && (
+        <QuickCustomerSearch onSelect={selectCustomer} />
+      )}
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
