@@ -40,7 +40,8 @@ export default function CashbackLookup() {
       c.name?.toLowerCase().includes(q.toLowerCase()) ||
       c.email?.toLowerCase().includes(q.toLowerCase()) ||
       (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned)) ||
-      (c.identifier_code && c.identifier_code.toLowerCase().includes(q.toLowerCase()))
+      (c.identifier_code && c.identifier_code.toLowerCase().includes(q.toLowerCase())) ||
+      (cleaned && c.identifier_code && c.identifier_code.replace(/\D/g, '').includes(cleaned))
     ));
     setSearchResults(results.slice(0, 5));
   };
@@ -96,12 +97,14 @@ export default function CashbackLookup() {
   };
 
   const handleRedeemConfirm = async () => {
-    if (!customer.identifier_code) {
-      setVerifyError('Este cliente não possui código de verificação. Cadastre o código no perfil do cliente antes de prosseguir.');
+    const codeDigits = (customer.identifier_code || '').replace(/\D/g, '');
+    const typedDigits = (verifyCode || '').replace(/\D/g, '');
+    if (!codeDigits) {
+      setVerifyError('Este cliente não possui CPF cadastrado. Cadastre o CPF no perfil do cliente antes de prosseguir.');
       return;
     }
-    if (!verifyCode.trim() || verifyCode.trim().toUpperCase() !== customer.identifier_code.toUpperCase()) {
-      setVerifyError('Código de verificação incorreto. Peça ao cliente o código correto (exibido em Minha Área).');
+    if (!typedDigits || typedDigits !== codeDigits) {
+      setVerifyError('CPF incorreto. Peça ao cliente o CPF cadastrado no app (Minha Área).');
       return;
     }
     setRedeeming(true);
@@ -349,7 +352,7 @@ export default function CashbackLookup() {
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
                 <h3 className="font-black text-lg mb-2">Confirmar utilização</h3>
-                <p className="text-gray-500 text-sm mb-4">Confirme os dados e peça o código de verificação do cliente.</p>
+                <p className="text-gray-500 text-sm mb-4">Confirme os dados e peça o CPF do cliente para verificação.</p>
                 <div className="space-y-2 text-sm mb-4">
                   <div className="flex justify-between py-1.5 border-b border-gray-100">
                     <span className="text-gray-500">Cliente</span><span className="font-semibold">{customer.name}</span>
@@ -365,11 +368,11 @@ export default function CashbackLookup() {
                   </div>
                 </div>
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4">
-                  <label className="block text-xs font-semibold text-orange-700 mb-1.5 uppercase tracking-wide">Código de Verificação *</label>
-                  <input value={verifyCode} onChange={e => setVerifyCode(e.target.value.toUpperCase())}
-                    placeholder="Digite ou escaneie o código"
-                    className="w-full px-4 py-3 border border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-mono uppercase tracking-wider" />
-                  <p className="text-xs text-orange-600 mt-1">Peça ao cliente o código do app (Minha Área) ou escaneie o QR code.</p>
+                  <label className="block text-xs font-semibold text-orange-700 mb-1.5 uppercase tracking-wide">CPF do Cliente *</label>
+                  <input value={verifyCode} onChange={e => setVerifyCode(e.target.value)}
+                    placeholder="Digite o CPF do cliente"
+                    className="w-full px-4 py-3 border border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-mono tracking-wider" />
+                  <p className="text-xs text-orange-600 mt-1">Peça ao cliente o CPF cadastrado no app (Minha Área).</p>
                   {verifyError && <p className="text-xs text-red-600 mt-1 font-semibold">⚠️ {verifyError}</p>}
                 </div>
                 <div className="flex gap-3">

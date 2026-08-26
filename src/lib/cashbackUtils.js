@@ -57,12 +57,18 @@ export const formatPhone = (phone) => {
   return phone;
 };
 
-export const generateIdentifierCode = (name, phone) => {
-  const cleaned = phone.replace(/\D/g, '');
-  const namePrefix = name.replace(/\s/g, '').toUpperCase().slice(0, 3);
-  const phoneSuffix = cleaned.slice(-4);
-  const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
-  return `${namePrefix}${phoneSuffix}${random}`;
+// O código de identificação do cliente é o seu CPF (somente dígitos).
+// Usado para verificação de identidade no resgate de cashback.
+export const cpfToIdentifierCode = (cpf) => {
+  if (!cpf) return '';
+  return cpf.replace(/\D/g, '');
+};
+
+export const formatCpf = (cpf) => {
+  if (!cpf) return '';
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11) return cpf;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 };
 
 export const createAuditLog = async (user, action, entityType, entityId, description, justification, beforeData, afterData) => {

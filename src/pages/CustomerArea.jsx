@@ -16,7 +16,7 @@ export default function CustomerArea() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useRouteCache('tab', 'saldo');
   const [setupMode, setSetupMode] = useState(false);
-  const [setupForm, setSetupForm] = useState({ name: user?.full_name || '', phone: '' });
+  const [setupForm, setSetupForm] = useState({ name: user?.full_name || '', phone: '', cpf: '' });
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState(null);
   const [showDelete, setShowDelete] = useState(false);
@@ -52,8 +52,8 @@ export default function CustomerArea() {
     if (!setupForm.name || !setupForm.phone) return;
     setSaving(true);
     try {
-      const { generateIdentifierCode } = await import('@/lib/cashbackUtils');
-      const code = generateIdentifierCode(setupForm.name, setupForm.phone);
+      const { cpfToIdentifierCode } = await import('@/lib/cashbackUtils');
+      const code = cpfToIdentifierCode(setupForm.cpf);
       const created = await base44.entities.Customer.create({
         name: setupForm.name,
         phone: setupForm.phone,
@@ -111,8 +111,14 @@ export default function CustomerArea() {
                 placeholder="(00) 00000-0000"
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
             </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">CPF *</label>
+              <input value={setupForm.cpf} onChange={e => setSetupForm({...setupForm, cpf: e.target.value})}
+                placeholder="000.000.000-00"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+            </div>
           </div>
-          <button onClick={handleSetup} disabled={saving || !setupForm.name || !setupForm.phone}
+          <button onClick={handleSetup} disabled={saving || !setupForm.name || !setupForm.phone || !setupForm.cpf}
             className="w-full mt-5 py-3 bg-orange-500 text-white font-bold rounded-xl disabled:opacity-60">
             {saving ? 'Salvando...' : 'Salvar'}
           </button>

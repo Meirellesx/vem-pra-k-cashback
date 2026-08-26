@@ -17,7 +17,7 @@ export default function Sales() {
   const [searchResults, setSearchResults] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [newCustomerMode, setNewCustomerMode] = useState(false);
-  const [newCustomerForm, setNewCustomerForm] = useState({ name: '', phone: '' });
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: '', phone: '', cpf: '' });
   const [form, setForm] = useState({ sale_number: '', total_amount: '', payment_method: 'pix', sale_date: today(), notes: '' });
   const [cashbackCalc, setCashbackCalc] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -62,8 +62,8 @@ export default function Sales() {
   const handleCreateCustomer = async () => {
     if (!newCustomerForm.name || !newCustomerForm.phone) return;
     try {
-      const { generateIdentifierCode } = await import('@/lib/cashbackUtils');
-      const code = generateIdentifierCode(newCustomerForm.name, newCustomerForm.phone);
+      const { cpfToIdentifierCode } = await import('@/lib/cashbackUtils');
+      const code = cpfToIdentifierCode(newCustomerForm.cpf);
       const created = await base44.entities.Customer.create({
         ...newCustomerForm, identifier_code: code,
         available_balance: 0, pending_balance: 0,
@@ -311,9 +311,12 @@ export default function Sales() {
             <input value={newCustomerForm.phone} onChange={e => setNewCustomerForm({...newCustomerForm, phone: e.target.value})}
               placeholder="Telefone * (00) 00000-0000"
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+            <input value={newCustomerForm.cpf} onChange={e => setNewCustomerForm({...newCustomerForm, cpf: e.target.value})}
+              placeholder="CPF * 000.000.000-00"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
             <div className="flex gap-2">
               <button onClick={() => setNewCustomerMode(false)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600">Cancelar</button>
-              <button onClick={handleCreateCustomer} disabled={!newCustomerForm.name || !newCustomerForm.phone}
+              <button onClick={handleCreateCustomer} disabled={!newCustomerForm.name || !newCustomerForm.phone || !newCustomerForm.cpf}
                 className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-bold disabled:opacity-60">Cadastrar</button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
+import { formatCpf } from '@/lib/cashbackUtils';
 
 export default function MeuCodigo() {
   const { user } = useAuth();
@@ -49,11 +50,11 @@ export default function MeuCodigo() {
               <div key={i} className={`h-4 rounded-sm ${[0, 2, 6, 8, 4].includes(i) ? 'bg-orange-500' : 'bg-[#ffffff]'}`} />
             ))}
           </div>
-          <div className="text-white font-mono text-xs font-bold mt-1">{customer.identifier_code}</div>
+          <div className="text-white font-mono text-xs font-bold mt-1">{formatCpf(customer.identifier_code)}</div>
         </div>
-        <p className="text-sm text-gray-500 mb-2">Apresente este código no caixa</p>
+        <p className="text-sm text-gray-500 mb-2">Apresente seu CPF no caixa</p>
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-          <span className="font-mono font-black text-orange-600 text-xl tracking-widest">{customer.identifier_code}</span>
+          <span className="font-mono font-black text-orange-600 text-xl tracking-widest">{formatCpf(customer.identifier_code)}</span>
         </div>
       </div>
     </div>

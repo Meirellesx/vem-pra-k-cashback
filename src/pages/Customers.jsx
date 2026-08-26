@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
-import { formatCurrency, formatPhone, generateIdentifierCode, createAuditLog, exportToCSV } from '@/lib/cashbackUtils';
+import { formatCurrency, formatPhone, cpfToIdentifierCode, createAuditLog, exportToCSV } from '@/lib/cashbackUtils';
 import { Search, Plus, Download, User, Phone, Wallet, Clock, Edit2, X, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -10,7 +10,7 @@ function CustomerModal({ customer, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!form.name || !form.phone) return;
+    if (!form.name || !form.phone || !form.cpf) return;
     if (!customer && !form.email) return;
     setSaving(true);
     onSave(form);
@@ -47,10 +47,13 @@ function CustomerModal({ customer, onClose, onSave }) {
             )}
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">CPF</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">CPF *</label>
             <input value={form.cpf || ''} onChange={e => setForm({...form, cpf: e.target.value})}
               placeholder="000.000.000-00"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+            {!customer && (
+              <p className="text-xs text-orange-600 mt-1">O CPF é o código de identificação do cliente para resgate de cashback.</p>
+            )}
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.accepts_promotions || false} onChange={e => setForm({...form, accepts_promotions: e.target.checked})}
@@ -60,7 +63,7 @@ function CustomerModal({ customer, onClose, onSave }) {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving || !form.name || !form.phone || (!customer && !form.email)}
+          <button onClick={handleSave} disabled={saving || !form.name || !form.phone || !form.cpf || (!customer && !form.email)}
             className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-xl text-sm font-bold">
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
@@ -97,8 +100,9 @@ export default function Customers() {
   const handleSave = async (form) => {
     try {
       if (editCustomer) {
-        await base44.entities.Customer.update(editCustomer.id, form);
-        await createAuditLog(user, 'update_customer', 'Customer', editCustomer.id, `Cliente atualizado: ${form.name}`, '', editCustomer, form);
+        const code = cpfToIdentifierCode(form.cpf);
+        await base44.entities.Customer.update(editCustomer.id, { ...form, identifier_code: code });
+        await createAuditLog(user, 'update_customer', 'Customer', editCustomer.id, `Cliente atualizado: ${form.name}`, '', editCustomer, { ...form, identifier_code: code });
         if (form.email && form.email !== editCustomer.email) {
           try {
             await base44.functions.invoke('invite-customer', { email: form.email, name: form.name });
@@ -108,7 +112,7 @@ export default function Customers() {
           }
         }
       } else {
-        const code = generateIdentifierCode(form.name, form.phone);
+        const code = cpfToIdentifierCode(form.cpf);
         await base44.entities.Customer.create({ ...form, identifier_code: code, available_balance: 0, pending_balance: 0, total_cashback_earned: 0, total_cashback_used: 0, is_demo: false });
         await createAuditLog(user, 'create_customer', 'Customer', '', `Novo cliente cadastrado: ${form.name}`, '', null, form);
         if (form.email) {
