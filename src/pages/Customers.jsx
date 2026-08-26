@@ -101,7 +101,7 @@ export default function Customers() {
         await createAuditLog(user, 'update_customer', 'Customer', editCustomer.id, `Cliente atualizado: ${form.name}`, '', editCustomer, form);
         if (form.email && form.email !== editCustomer.email) {
           try {
-            await base44.users.inviteUser(form.email, 'cliente');
+            await base44.functions.invoke('invite-customer', { email: form.email, name: form.name });
             toast({ title: 'Convite enviado', description: `Convite enviado para ${form.email}.` });
           } catch (inviteErr) {
             console.error('Invite error:', inviteErr);
@@ -113,7 +113,7 @@ export default function Customers() {
         await createAuditLog(user, 'create_customer', 'Customer', '', `Novo cliente cadastrado: ${form.name}`, '', null, form);
         if (form.email) {
           try {
-            await base44.users.inviteUser(form.email, 'cliente');
+            await base44.functions.invoke('invite-customer', { email: form.email, name: form.name });
             toast({ title: 'Cliente cadastrado', description: `Convite enviado para ${form.email}.` });
           } catch (inviteErr) {
             console.error('Invite error:', inviteErr);
