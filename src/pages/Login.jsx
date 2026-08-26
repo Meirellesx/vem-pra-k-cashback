@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { safeReturnTo } from '@/lib/authReturnTo';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -7,7 +8,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const returnTo = new URLSearchParams(window.location.search).get('returnTo') || '/';
+  const returnTo = safeReturnTo();
 
   const handleLogin = async (e) => {
     e.preventDefault();

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { safeReturnTo } from '@/lib/authReturnTo';
 
 export default function Register() {
   const [step, setStep] = useState('form');
@@ -10,7 +11,7 @@ export default function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const returnTo = new URLSearchParams(window.location.search).get('returnTo') || '/';
+  const returnTo = safeReturnTo();
 
   const handleRegister = async (e) => {
     e.preventDefault();
