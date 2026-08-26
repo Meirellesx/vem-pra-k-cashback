@@ -96,8 +96,12 @@ export default function CashbackLookup() {
   };
 
   const handleRedeemConfirm = async () => {
-    if (verifyCode.trim().toUpperCase() !== (customer.identifier_code || '').toUpperCase()) {
-      setVerifyError('Código de verificação incorreto. Peça ao cliente o código correto.');
+    if (!customer.identifier_code) {
+      setVerifyError('Este cliente não possui código de verificação. Cadastre o código no perfil do cliente antes de prosseguir.');
+      return;
+    }
+    if (!verifyCode.trim() || verifyCode.trim().toUpperCase() !== customer.identifier_code.toUpperCase()) {
+      setVerifyError('Código de verificação incorreto. Peça ao cliente o código correto (exibido em Minha Área).');
       return;
     }
     setRedeeming(true);
@@ -165,18 +169,26 @@ export default function CashbackLookup() {
       setVerifyCode('');
       setVerifyError('');
 
-      // Notifica o cliente por e-mail sobre o valor resgatado
-      if (customer.email) {
-        try {
-          const newBalance = Math.max(0, (customer.available_balance || 0) - amount);
-          await base44.integrations.Core.SendEmail({
-            to: customer.email,
-            subject: `Cashback utilizado — ${formatCurrency(amount)}`,
-            body: `Olá ${customer.name},\n\nVocê utilizou ${formatCurrency(amount)} de cashback na venda #${redeemSaleNumber}.\nValor da compra: ${formatCurrency(saleTotal)}.\n\nNovo saldo disponível: ${formatCurrency(newBalance)}.\n\nObrigado por participar do Vem Pra K Cashback!`,
-          });
-        } catch (emailErr) {
-          console.error('Email notification error:', emailErr);
-        }
+      // Notifica o cliente por e-mail sobre o valor resgatado (via função de backend)
+      let emailSent = false;
+      try {
+        const newBalanceForEmail = Math.max(0, (customer.available_balance || 0) - amount);
+        const res = await base44.functions.invoke('notify-redemption', {
+          customer_id: customer.id,
+          customer_name: customer.name,
+          amount,
+          sale_number: redeemSaleNumber,
+          sale_total: saleTotal,
+          new_balance: newBalanceForEmail,
+        });
+        emailSent = res?.data?.success === true;
+      } catch (emailErr) {
+        console.error('Email notification error:', emailErr);
+      }
+      if (emailSent) {
+        setSuccess(`✅ ${formatCurrency(amount)} de cashback utilizado com sucesso! E-mail enviado ao cliente.`);
+      } else {
+        setSuccess(`✅ ${formatCurrency(amount)} de cashback utilizado com sucesso! (Não foi possível enviar o e-mail — verifique se o cliente possui e-mail cadastrado.)`);
       }
 
       // Refresh customer
