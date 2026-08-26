@@ -65,16 +65,19 @@ export default function QuickCustomerSearch({ onSelect }) {
     }
     if (videoRef.current) videoRef.current.srcObject = null;
     detectorRef.current = null;
+    setScanError('');
     setScanning(false);
   }, []);
 
   const startScan = useCallback(async () => {
     setScanError('');
+    // Pre-flight check: avoid a flash of an empty modal when scanning can't work here.
+    if (typeof window === 'undefined' || !('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
+      setScanError('Leitura de QR não é suportada neste navegador. Digite o código do cliente manualmente.');
+      return;
+    }
     setScanning(true);
     try {
-      if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
-        throw new Error('Leitura de QR não é suportada neste dispositivo/navegador.');
-      }
       const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
       detectorRef.current = detector;
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -98,8 +101,8 @@ export default function QuickCustomerSearch({ onSelect }) {
       };
       rafRef.current = requestAnimationFrame(tick);
     } catch (e) {
-      setScanError(e.message || 'Não foi possível acessar a câmera.');
-      setScanning(false);
+      // Keep the modal open so the cashier sees why the camera couldn't start.
+      setScanError(e.message || 'Não foi possível acessar a câmera. Verifique as permissões do navegador.');
     }
   }, [lookupByCode, stopScan]);
 
@@ -119,7 +122,7 @@ export default function QuickCustomerSearch({ onSelect }) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               value={code}
-              onChange={e => setCode(e.target.value.toUpperCase())}
+              onChange={e => { setCode(e.target.value.toUpperCase()); setScanError(''); setNotFound(false); }}
               placeholder="Digite o código do cliente..."
               className="w-full pl-10 pr-4 py-3 bg-white/10 text-white placeholder-gray-500 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-mono uppercase tracking-wider"
             />
@@ -132,6 +135,11 @@ export default function QuickCustomerSearch({ onSelect }) {
         {notFound && (
           <p className="text-xs text-red-300 mt-2 flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" /> Nenhum cliente encontrado com este código.
+          </p>
+        )}
+        {scanError && !scanning && (
+          <p className="text-xs text-orange-300 mt-2 flex items-start gap-1">
+            <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" /> {scanError}
           </p>
         )}
       </form>
