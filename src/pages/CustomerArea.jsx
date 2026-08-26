@@ -6,6 +6,7 @@ import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle, Refresh
 import StatusBadge from '@/components/ui/StatusBadge';
 import DeleteAccountModal from '@/components/customer/DeleteAccountModal';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useRouteCache } from '@/hooks/useRouteCache';
 
 export default function CustomerArea() {
   const { user } = useAuth();
@@ -13,7 +14,7 @@ export default function CustomerArea() {
   const [transactions, setTransactions] = useState([]);
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('saldo');
+  const [tab, setTab] = useRouteCache('tab', 'saldo');
   const [setupMode, setSetupMode] = useState(false);
   const [setupForm, setSetupForm] = useState({ name: user?.full_name || '', phone: '' });
   const [saving, setSaving] = useState(false);

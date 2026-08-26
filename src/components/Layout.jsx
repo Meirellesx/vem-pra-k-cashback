@@ -1,4 +1,4 @@
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -92,6 +92,36 @@ export default function Layout() {
   const navItems = navByRole[role] || navByRole.cliente;
   const isCustomer = role === 'cliente' || role === 'user';
 
+  // Layout-level scroll cache: preserve scroll depth across customer MobileNav tab switches.
+  const mainRef = useRef(null);
+  const scrollCache = useRef({});
+
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main || !isCustomer) return;
+    const onSave = () => { scrollCache.current[location.pathname] = main.scrollTop; };
+    main.addEventListener('scroll', onSave, { passive: true });
+    return () => main.removeEventListener('scroll', onSave);
+  }, [location.pathname, isCustomer]);
+
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main || !isCustomer) return;
+    const saved = scrollCache.current[location.pathname] || 0;
+    let attempts = 0;
+    const tryRestore = () => {
+      attempts++;
+      if (main.scrollHeight - main.clientHeight >= saved - 2) {
+        main.scrollTop = saved;
+      }
+      if (attempts < 10 && Math.abs(main.scrollTop - saved) > 2) {
+        requestAnimationFrame(tryRestore);
+      }
+    };
+    const id = requestAnimationFrame(tryRestore);
+    return () => cancelAnimationFrame(id);
+  }, [location.pathname, isCustomer]);
+
   const handleLogout = () => { base44.auth.logout('/login'); };
 
   const NavLink = ({ item }) => {
@@ -184,6 +214,7 @@ export default function Layout() {
         )}
 
         <main
+          ref={mainRef}
           className="flex-1 overflow-y-auto"
           style={isCustomer && isMobile ? { paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' } : undefined}
         >

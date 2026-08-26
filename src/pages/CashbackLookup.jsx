@@ -107,9 +107,48 @@ export default function CashbackLookup() {
     setRedeeming(true);
     setError('');
     setVerifyError('');
+
+    const amount = parseFloat(redeemAmount);
+    const saleTotal = parseFloat(redeemSaleTotal);
+
+    // Snapshot for rollback if the network calls fail
+    const prevCustomer = customer;
+    const prevTransactions = transactions;
+
+    // Determine which transactions will be consumed (FIFO) for the optimistic update
+    let previewRemaining = amount;
+    const optimisticUsedIds = [];
+    for (const tx of availableTransactions) {
+      if (previewRemaining <= 0) break;
+      optimisticUsedIds.push(tx.id);
+      previewRemaining -= Math.min(previewRemaining, tx.amount);
+    }
+
+    // Optimistic UI update — reflect the redemption immediately, ahead of the network
+    setCustomer(prev => ({
+      ...prev,
+      available_balance: Math.max(0, (prev.available_balance || 0) - amount),
+      total_cashback_used: (prev.total_cashback_used || 0) + amount,
+    }));
+    setTransactions(prev => {
+      const usedSet = new Set(optimisticUsedIds);
+      const marked = prev.map(t => (usedSet.has(t.id) ? { ...t, status: 'usado' } : t));
+      const usageTxLocal = {
+        id: `optimistic-${Date.now()}`,
+        customer_id: customer.id,
+        customer_name: customer.name,
+        sale_number: redeemSaleNumber,
+        amount: -amount,
+        type: 'utilizado',
+        status: 'usado',
+        transaction_date: new Date().toISOString().split('T')[0],
+        operator_id: user?.id || '',
+        is_demo: false,
+      };
+      return [usageTxLocal, ...marked];
+    });
+
     try {
-      const amount = parseFloat(redeemAmount);
-      const saleTotal = parseFloat(redeemSaleTotal);
       let remaining = amount;
       const usedTxIds = [];
 
@@ -196,6 +235,9 @@ export default function CashbackLookup() {
       setCustomer(updated);
       await selectCustomer(updated);
     } catch (e) {
+      // Revert the optimistic update so the UI stays in sync with the server
+      setCustomer(prevCustomer);
+      setTransactions(prevTransactions);
       setError('Erro ao registrar utilização: ' + e.message);
     } finally {
       setRedeeming(false);

@@ -88,15 +88,28 @@
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 .safe-top-bottom { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 
-/* ===== Web UX Polish (iOS WebView) ===== */
+/* ===== Web UX Polish (Android WebView) ===== */
 html { -webkit-tap-highlight-color: transparent; }
 body {
   overscroll-behavior: none;
-  -webkit-user-select: none;
-  user-select: none;
   -webkit-touch-callout: none;
 }
-input, textarea, select, [contenteditable="true"] {
+
+/* Selectively disable selection on interactive chrome (buttons, tabs, icons, menus).
+   Body text — client ID codes, CPF, rules, and privacy docs — stays copy-selectable. */
+button,
+[role="tab"],
+[role="menu"],
+[role="menuitem"],
+nav,
+svg {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Ensure form fields and copy-worthy text remain explicitly selectable */
+input, textarea, select, [contenteditable="true"],
+code, pre, [data-selectable] {
   user-select: text;
   -webkit-user-select: text;
 }
