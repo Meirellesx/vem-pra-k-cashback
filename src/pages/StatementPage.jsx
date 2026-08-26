@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/cashbackUtils';
-import { FileText, Download, Filter } from 'lucide-react';
+import { FileText, Download, Filter, RefreshCw } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 export default function StatementPage() {
   const { user } = useAuth();
@@ -27,6 +28,8 @@ export default function StatementPage() {
     }
     setLoading(false);
   };
+
+  const { pullDistance, refreshing, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(loadData);
 
   const filtered = transactions.filter(t =>
     (!filterStatus || t.status === filterStatus) &&
@@ -52,7 +55,17 @@ export default function StatementPage() {
   );
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl mx-auto">
+    <div
+      className="p-4 md:p-8 max-w-2xl mx-auto"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {(pullDistance > 0 || refreshing) && (
+        <div className="flex items-center justify-center overflow-hidden mb-2" style={{ height: refreshing ? 40 : pullDistance }}>
+          <RefreshCw className={`w-6 h-6 text-orange-500 ${refreshing ? 'animate-spin' : ''}`} />
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Extrato Completo</h1>

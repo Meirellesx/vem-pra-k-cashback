@@ -14,6 +14,8 @@ export default function MobileHeader() {
   const navigate = useNavigate();
   const title = TITLES[location.pathname] || 'Vem Pra K Cashback';
   const isHome = location.pathname === '/minha-area';
+  const canGoBack = typeof window !== 'undefined' && window.history.state?.idx > 0;
+  const handleBack = () => (canGoBack ? navigate(-1) : navigate('/minha-area'));
 
   return (
     <header
@@ -25,7 +27,7 @@ export default function MobileHeader() {
           <div className="w-11" />
         ) : (
           <button
-            onClick={() => navigate('/minha-area')}
+            onClick={handleBack}
             className="p-2.5 text-white active:bg-white/10 rounded-lg"
             aria-label="Voltar"
           >

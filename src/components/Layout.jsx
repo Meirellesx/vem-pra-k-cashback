@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -10,6 +10,13 @@ import {
 } from 'lucide-react';
 import MobileNav from '@/components/mobile/MobileNav';
 import MobileHeader from '@/components/mobile/MobileHeader';
+import PageTransition from '@/components/mobile/PageTransition';
+
+const ContentLoader = () => (
+  <div className="flex items-center justify-center h-64">
+    <div className="w-8 h-8 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin" />
+  </div>
+);
 
 const LogoMark = () => (
   <div className="flex items-center gap-2">
@@ -180,7 +187,11 @@ export default function Layout() {
           className="flex-1 overflow-y-auto"
           style={isCustomer && isMobile ? { paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' } : undefined}
         >
-          <Outlet />
+          <Suspense fallback={<ContentLoader />}>
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
+          </Suspense>
         </main>
       </div>
 

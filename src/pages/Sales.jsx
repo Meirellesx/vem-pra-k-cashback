@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback, getAvailableDate, getExpiryDate, createAuditLog } from '@/lib/cashbackUtils';
 import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag } from 'lucide-react';
 import { PAYMENT_METHODS } from '@/lib/constants';
+import DrawerSelect from '@/components/mobile/DrawerSelect';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -341,10 +342,13 @@ export default function Sales() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Forma de Pagamento *</label>
-              <select value={form.payment_method} onChange={e => setForm({...form, payment_method: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
-                {Object.entries(PAYMENT_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              <DrawerSelect
+                value={form.payment_method}
+                onChange={(v) => setForm({...form, payment_method: v})}
+                label="Forma de Pagamento"
+                className="w-full px-4 py-3 text-sm min-w-0"
+                options={Object.entries(PAYMENT_METHODS).map(([k, v]) => ({ value: k, label: v }))}
+              />
             </div>
             {categories.length > 0 && (
               <div className="sm:col-span-2">

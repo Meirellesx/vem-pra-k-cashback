@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Mail, Phone, Briefcase, User, ShieldCheck, Save } from 'lucide-react';
 import { STAFF_ROLES, USER_STATUS } from '@/lib/constants';
+import DrawerSelect from '@/components/mobile/DrawerSelect';
 
 export default function UserFormModal({ open, editingUser, onSave, onCancel, saving }) {
   const isEdit = !!editingUser;
@@ -155,15 +156,13 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
                 <span className="text-xs text-gray-400 ml-auto">Use "Alterar Perfil" na lista para mudar</span>
               </div>
             ) : (
-              <select
+              <DrawerSelect
                 value={form.role}
-                onChange={e => setForm({ ...form, role: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-              >
-                {staffRoleOptions.map(r => (
-                  <option key={r} value={r}>{STAFF_ROLES[r]}</option>
-                ))}
-              </select>
+                onChange={(v) => setForm({ ...form, role: v })}
+                label="Perfil de acesso"
+                className="w-full px-3 py-2.5 text-sm min-w-0"
+                options={staffRoleOptions.map(r => ({ value: r, label: STAFF_ROLES[r] }))}
+              />
             )}
           </div>
 
@@ -178,14 +177,16 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
                 <span className="text-xs text-gray-400 ml-2">— use as ações na lista para alterar</span>
               </div>
             ) : (
-              <select
+              <DrawerSelect
                 value={form.status}
-                onChange={e => setForm({ ...form, status: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-              >
-                <option value="pending">Pendente (aguardando primeiro acesso)</option>
-                <option value="active">Ativo</option>
-              </select>
+                onChange={(v) => setForm({ ...form, status: v })}
+                label="Status inicial"
+                className="w-full px-3 py-2.5 text-sm min-w-0"
+                options={[
+                  { value: 'pending', label: 'Pendente (aguardando primeiro acesso)' },
+                  { value: 'active', label: 'Ativo' },
+                ]}
+              />
             )}
           </div>
 

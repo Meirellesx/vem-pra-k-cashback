@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone } from '@/lib/cashbackUtils';
-import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle, RefreshCw } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import DeleteAccountModal from '@/components/customer/DeleteAccountModal';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 export default function CustomerArea() {
   const { user } = useAuth();
@@ -43,6 +44,8 @@ export default function CustomerArea() {
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
+
+  const { pullDistance, refreshing, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(loadData);
 
   const handleSetup = async () => {
     if (!setupForm.name || !setupForm.phone) return;
@@ -118,7 +121,17 @@ export default function CustomerArea() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-2xl mx-auto">
+    <div
+      className="p-4 md:p-8 max-w-2xl mx-auto"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {(pullDistance > 0 || refreshing) && (
+        <div className="flex items-center justify-center overflow-hidden" style={{ height: refreshing ? 40 : pullDistance }}>
+          <RefreshCw className={`w-6 h-6 text-orange-500 ${refreshing ? 'animate-spin' : ''}`} />
+        </div>
+      )}
       {/* Header */}
       <div className="bg-[#0A0A0A] rounded-2xl p-5 mb-5 text-white">
         <div className="flex items-center gap-3 mb-4">
