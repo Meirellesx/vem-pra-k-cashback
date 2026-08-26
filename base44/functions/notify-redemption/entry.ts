@@ -9,6 +9,12 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: false, error: "Não autorizado" }, { status: 401 });
     }
 
+    // Apenas perfis operacionais/administrativos podem disparar notificações de resgate.
+    const allowedRoles = ["admin", "manager", "cashier", "operador"];
+    if (!allowedRoles.includes(user.role)) {
+      return Response.json({ success: false, error: "Acesso restrito a operadores e administradores" }, { status: 403 });
+    }
+
     const { customer_id, customer_name, amount, sale_number, sale_total, new_balance } = await req.json();
 
     if (!customer_id) {

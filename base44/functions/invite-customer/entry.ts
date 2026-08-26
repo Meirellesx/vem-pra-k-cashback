@@ -9,6 +9,11 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: false, error: "Não autorizado" }, { status: 401 });
     }
 
+    // Apenas administradores e gerentes podem convidar clientes e ajustar perfis.
+    if (user.role !== "admin" && user.role !== "manager") {
+      return Response.json({ success: false, error: "Acesso restrito a administradores e gerentes" }, { status: 403 });
+    }
+
     const { email, name } = await req.json();
 
     if (!email) {
