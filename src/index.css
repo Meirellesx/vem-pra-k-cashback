@@ -157,4 +157,23 @@ code, pre, [data-selectable] {
   :root:not(.light) .border-gray-100 { border-color: hsl(220 13% 20%); }
   :root:not(.light) .border-gray-200 { border-color: hsl(220 13% 22%); }
   :root:not(.light) .divide-gray-50 > * { border-color: hsl(220 13% 18%); }
+
+  /* Inputs: keep typed text + placeholders legible on dark backgrounds */
+  :root:not(.light) input,
+  :root:not(.light) textarea,
+  :root:not(.light) select {
+    color: hsl(220 13% 95%);
+  }
+  :root:not(.light) input::placeholder,
+  :root:not(.light) textarea::placeholder {
+    color: hsl(220 10% 58%);
+  }
+  /* Neutralize browser autofill's forced light background/yellow text */
+  :root:not(.light) input:-webkit-autofill,
+  :root:not(.light) input:-webkit-autofill:hover,
+  :root:not(.light) input:-webkit-autofill:focus {
+    -webkit-text-fill-color: hsl(220 13% 95%);
+    -webkit-box-shadow: 0 0 0 1000px hsl(220 13% 13%) inset;
+    caret-color: hsl(220 13% 95%);
+  }
 }
