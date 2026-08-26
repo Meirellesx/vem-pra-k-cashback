@@ -5,7 +5,6 @@ import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback
 import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag } from 'lucide-react';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
-import QuickCustomerSearch from '@/components/sales/QuickCustomerSearch';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -46,7 +45,8 @@ export default function Sales() {
     const all = await base44.entities.Customer.list('-created_date', 100);
     const results = all.filter(c => c.is_active !== false && !c.is_demo && (
       c.name?.toLowerCase().includes(q.toLowerCase()) ||
-      (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned))
+      (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned)) ||
+      (cleaned && c.identifier_code && c.identifier_code.replace(/\D/g, '').includes(cleaned))
     ));
     setSearchResults(results.slice(0, 5));
   };
@@ -229,10 +229,6 @@ export default function Sales() {
         <p className="text-gray-500 text-sm">Tela do operador de caixa</p>
       </div>
 
-      {step === 'search' && (
-        <QuickCustomerSearch onSelect={selectCustomer} />
-      )}
-
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -274,7 +270,7 @@ export default function Sales() {
               <input
                 value={search}
                 onChange={e => handleSearch(e.target.value)}
-                placeholder="Nome ou telefone do cliente..."
+                placeholder="Nome, telefone ou CPF do cliente..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
               />
             </div>
