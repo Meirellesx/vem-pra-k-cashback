@@ -15,14 +15,21 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: false, error: "E-mail é obrigatório" }, { status: 400 });
     }
 
-    // Convida o usuário (a plataforma exige role 'user' no convite e envia
-    // automaticamente um e-mail com o link para definir a senha).
+    // 1. Cria a conta do usuário via convite (a plataforma exige role 'user').
     await base44.users.inviteUser(email, "user");
 
-    // Ajusta o perfil para 'cliente' usando service role (acesso de admin).
+    // 2. Ajusta o perfil para 'cliente' usando service role (acesso de admin).
     const found = await base44.asServiceRole.entities.User.filter({ email });
     if (found.length > 0) {
       await base44.asServiceRole.entities.User.update(found[0].id, { role: "cliente" });
+    }
+
+    // 3. Dispara o link de definição de senha — este e-mail leva o cliente
+    //    direto à tela de criar senha (/reset-password?token=...), finalizando o cadastro.
+    try {
+      await base44.auth.resetPasswordRequest(email);
+    } catch (resetErr) {
+      console.error("resetPasswordRequest error:", resetErr);
     }
 
     // Registra a ação no log de auditoria
@@ -32,7 +39,7 @@ export default async function (req: Request): Promise<Response> {
       user_role: user.role,
       action: "invite_customer",
       entity_type: "Customer",
-      description: `Convite de acesso enviado para ${name || email} — ${email}`,
+      description: `Convite de acesso enviado para ${name || email} — ${email} (link de definição de senha enviado)`,
       is_demo: false,
     });
 
