@@ -21,7 +21,11 @@ export default async function (req: Request): Promise<Response> {
     }
 
     // 1. Cria a conta do usuário via convite (a plataforma exige role 'user').
-    await base44.users.inviteUser(email, "user");
+    try {
+      await base44.users.inviteUser(email, "user");
+    } catch (e) {
+      console.error("inviteUser (continuing):", e.message);
+    }
 
     // 2. Ajusta o perfil para 'cliente' usando service role (acesso de admin).
     const found = await base44.asServiceRole.entities.User.filter({ email });
@@ -29,22 +33,16 @@ export default async function (req: Request): Promise<Response> {
       await base44.asServiceRole.entities.User.update(found[0].id, { role: "cliente" });
     }
 
-    // 3. Dispara o link de definição de senha — este e-mail leva o cliente
-    //    direto à tela de criar senha (/reset-password?token=...), finalizando o cadastro.
-    try {
-      await base44.auth.resetPasswordRequest(email);
-    } catch (resetErr) {
-      console.error("resetPasswordRequest error:", resetErr);
-    }
+    // O link de definição de senha é enviado pelo workflow "CustomerResetLink",
+    // que dispara quando o cliente é criado (ou tem o e-mail alterado).
 
-    // Registra a ação no log de auditoria
     await base44.entities.AuditLog.create({
       user_id: user.id,
       user_name: user.full_name || user.email,
       user_role: user.role,
       action: "invite_customer",
       entity_type: "Customer",
-      description: `Convite de acesso enviado para ${name || email} — ${email} (link de definição de senha enviado)`,
+      description: `Convite de acesso enviado para ${name || email} — ${email}`,
       is_demo: false,
     });
 
