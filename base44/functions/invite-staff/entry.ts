@@ -2,14 +2,6 @@ import { createClientFromRequest } from "npm:@base44/sdk";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Senha temporária forte e aleatória (o funcionário vai substituí-la pelo link de reset).
-const generateTempPassword = () => {
-  const chars = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let pwd = "";
-  for (let i = 0; i < 14; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
-  return pwd + "!1Aa";
-};
-
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -32,16 +24,11 @@ export default async function (req: Request): Promise<Response> {
     const allowedRoles = ["admin", "manager", "cashier", "viewer"];
     const targetRole = allowedRoles.includes(role) ? role : "cashier";
 
-    // 1. Cria a conta com uma senha temporária.
-    //    Usamos register() (em vez de inviteUser) para NÃO disparar o e-mail de
-    //    convite/login — queremos que o funcionário receba apenas o link de
-    //    definição de senha (reset).
-    let registered = false;
+    // 1. Cria a conta do funcionário via convite (a plataforma exige role 'user').
     try {
-      await base44.auth.register({ email, password: generateTempPassword() });
-      registered = true;
+      await base44.users.inviteUser(email, "user");
     } catch (e) {
-      console.error("register (continuing):", e.message);
+      console.error("inviteUser (continuing):", e.message);
     }
 
     // 2. Aguarda a conta ficar disponível e aplica perfil + metadados.
@@ -62,8 +49,8 @@ export default async function (req: Request): Promise<Response> {
       await sleep(800);
     }
 
-    // 3. Dispara o link de definição de senha — o ÚNICO e-mail que o funcionário
-    //    precisa usar para criar sua senha de acesso.
+    // 3. Dispara o link de definição de senha — este e-mail leva o funcionário
+    //    direto à tela de criar senha (/reset-password?token=...), finalizando o cadastro.
     let resetSent = false;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -87,7 +74,7 @@ export default async function (req: Request): Promise<Response> {
       is_demo: false,
     });
 
-    return Response.json({ success: true, email, userId, role: targetRole, resetSent, registered });
+    return Response.json({ success: true, email, userId, role: targetRole, resetSent });
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
