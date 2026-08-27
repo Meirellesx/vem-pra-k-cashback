@@ -1,5 +1,5 @@
 import { base44 } from '@/api/base44Client';
-import { createAuditLog } from './cashbackUtils';
+import { createAuditLog, cpfToIdentifierCode } from './cashbackUtils';
 import { STAFF_ROLES } from './constants';
 
 const STAFF_ROLE_KEYS = ['admin', 'manager', 'cashier', 'viewer', 'operador', 'user', 'cliente'];
@@ -94,7 +94,7 @@ export const countActiveAdmins = async () => {
 };
 
 export const createEmployee = async (data, currentUser) => {
-  const { full_name, email, phone, job_title, role, status, accepts_terms } = data;
+  const { full_name, email, phone, job_title, role, status, accepts_terms, cpf } = data;
 
   if (!full_name || !email || !role || !status) {
     throw new Error('Nome, e-mail, perfil de acesso e status são obrigatórios.');
@@ -167,6 +167,8 @@ export const createEmployee = async (data, currentUser) => {
         name: full_name,
         phone: phone || '',
         email,
+        cpf: cpf || '',
+        identifier_code: cpfToIdentifierCode(cpf),
         available_balance: 0,
         pending_balance: 0,
         total_cashback_earned: 0,

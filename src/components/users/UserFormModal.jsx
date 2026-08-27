@@ -10,6 +10,7 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
     full_name: '',
     email: '',
     phone: '',
+    cpf: '',
     job_title: '',
     role: 'cashier',
     status: 'pending',
@@ -25,6 +26,7 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
           full_name: editingUser.full_name || '',
           email: editingUser.email || '',
           phone: editingUser.phone || '',
+          cpf: '',
           job_title: editingUser.job_title || '',
           role: editingUser.role || 'cashier',
           status: editingUser.status || 'active',
@@ -35,6 +37,7 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
           full_name: '',
           email: '',
           phone: '',
+          cpf: '',
           job_title: '',
           role: 'cashier',
           status: 'pending',
@@ -59,6 +62,7 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
       full_name: form.full_name.trim(),
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim(),
+      cpf: form.cpf ? form.cpf.trim() : '',
       job_title: form.job_title.trim(),
     });
   };
