@@ -1,0 +1,64 @@
+{
+  "name": "StaffInvitation",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "title": "Nome do funcion\u00e1rio"
+    },
+    "email": {
+      "type": "string",
+      "title": "E-mail"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Telefone"
+    },
+    "job_title": {
+      "type": "string",
+      "title": "Cargo / Fun\u00e7\u00e3o"
+    },
+    "role": {
+      "type": "string",
+      "title": "Perfil de acesso",
+      "enum": [
+        "admin",
+        "manager",
+        "cashier",
+        "viewer",
+        "operador",
+        "cliente",
+        "user"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "title": "Status do convite",
+      "enum": [
+        "pending",
+        "accepted",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "invited_by": {
+      "type": "string",
+      "title": "Convidado por"
+    },
+    "invited_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data do convite"
+    },
+    "accepted_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data de aceite"
+    }
+  },
+  "required": [
+    "full_name",
+    "email",
+    "role"
+  ]
+}
