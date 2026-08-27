@@ -9,8 +9,68 @@ export const isAdmin = (user) => user?.role === 'admin';
 export const getUserStatus = (user) => user?.status || 'active';
 
 export const getStaffUsers = async () => {
-  const allUsers = await base44.entities.User.list('-created_date', 500);
-  return (allUsers || []).filter(u => STAFF_ROLE_KEYS.includes(u.role));
+  const [allUsers, invitations] = await Promise.all([
+    base44.entities.User.list('-created_date', 500),
+    base44.entities.StaffInvitation.list('-invited_at', 500).catch(() => []),
+  ]);
+  const users = (allUsers || []).filter(u => STAFF_ROLE_KEYS.includes(u.role));
+  const userEmails = new Set(users.map(u => (u.email || '').toLowerCase()));
+
+  // Pending invitations for users who haven't accepted yet — shown as pseudo-users
+  const pending = (invitations || [])
+    .filter(inv => inv.status === 'pending' && !userEmails.has((inv.email || '').toLowerCase()))
+    .map(inv => ({
+      id: inv.id,
+      full_name: inv.full_name,
+      email: inv.email,
+      phone: inv.phone || '',
+      job_title: inv.job_title || '',
+      role: inv.role,
+      status: 'pending',
+      created_date: inv.invited_at || inv.created_date,
+      last_login_at: null,
+      _isPending: true,
+      _invitationId: inv.id,
+    }));
+
+  return [...users, ...pending];
+};
+
+export const resendInvitation = async (invitation, currentUser) => {
+  await base44.auth.resetPasswordRequest(invitation.email);
+
+  await base44.entities.StaffInvitation.update(invitation._invitationId || invitation.id, {
+    invited_at: new Date().toISOString(),
+    invited_by: currentUser?.full_name || currentUser?.email || 'admin',
+  });
+
+  await createAuditLog(
+    currentUser,
+    'resend_invitation',
+    'StaffInvitation',
+    invitation._invitationId || invitation.id,
+    `Reenvio de convite para ${invitation.full_name || invitation.email}`,
+    '',
+    null,
+    { email: invitation.email }
+  );
+};
+
+export const cancelInvitation = async (invitation, currentUser) => {
+  await base44.entities.StaffInvitation.update(invitation._invitationId || invitation.id, {
+    status: 'cancelled',
+  });
+
+  await createAuditLog(
+    currentUser,
+    'cancel_invitation',
+    'StaffInvitation',
+    invitation._invitationId || invitation.id,
+    `Cancelamento do convite de ${invitation.full_name || invitation.email}`,
+    '',
+    null,
+    { email: invitation.email }
+  );
 };
 
 export const countActiveAdmins = async () => {
@@ -31,19 +91,24 @@ export const createEmployee = async (data, currentUser) => {
     throw new Error('Já existe um usuário cadastrado com este e-mail.');
   }
 
-  // Invite the user — sends email to set password securely
+  // Check for an existing pending invitation with the same email (re-add scenario)
+  const existingInv = await base44.entities.StaffInvitation.filter({ email, status: 'pending' }).catch(() => []);
+
+  // Invite the user — sends email to set password securely.
+  // Failure here (e.g. already invited) is non-fatal: we still track the invitation
+  // locally so the employee shows up in the list before accepting.
   try {
     await base44.users.inviteUser(email, role);
   } catch (inviteErr) {
-    // Fallback: invite as 'user' and update role afterwards
     try {
       await base44.users.inviteUser(email, 'user');
     } catch (e2) {
-      throw new Error('Não foi possível enviar o convite: ' + (e2.message || 'erro desconhecido'));
+      console.error('inviteUser failed (continuing anyway):', e2.message);
     }
   }
 
-  // Find the newly created user and persist extra fields
+  // Find the newly created user (only present if the invite was accepted instantly)
+  // and persist extra fields.
   let newUser = null;
   try {
     const found = await base44.entities.User.filter({ email });
@@ -59,6 +124,36 @@ export const createEmployee = async (data, currentUser) => {
     }
   } catch (e) {
     console.error('Could not update new user metadata:', e);
+  }
+
+  // Track the invitation locally so the employee appears in the list
+  // even before accepting the invite and setting a password.
+  let invitation = null;
+  try {
+    if (existingInv && existingInv.length > 0) {
+      invitation = await base44.entities.StaffInvitation.update(existingInv[0].id, {
+        full_name: full_name,
+        phone: phone || '',
+        job_title: job_title || '',
+        role: role,
+        status: 'pending',
+        invited_by: currentUser?.full_name || currentUser?.email || 'admin',
+        invited_at: new Date().toISOString(),
+      });
+    } else {
+      invitation = await base44.entities.StaffInvitation.create({
+        full_name: full_name,
+        email: email,
+        phone: phone || '',
+        job_title: job_title || '',
+        role: role,
+        status: 'pending',
+        invited_by: currentUser?.full_name || currentUser?.email || 'admin',
+        invited_at: new Date().toISOString(),
+      });
+    }
+  } catch (e) {
+    console.error('Could not create staff invitation record:', e);
   }
 
   // Envia o e-mail de definição de senha, direcionando o novo funcionário

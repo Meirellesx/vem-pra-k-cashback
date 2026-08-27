@@ -14,12 +14,14 @@ import {
   reactivateUser,
   changeUserRole,
   resetUserPassword,
+  resendInvitation,
+  cancelInvitation,
 } from '@/lib/userUtils';
 import { STAFF_ROLES, USER_STATUS, STAFF_ROLE_PERMISSIONS } from '@/lib/constants';
 import { formatDateTime, formatDate } from '@/lib/cashbackUtils';
 import {
   UserCog, Search, Plus, Edit, Ban, CheckCircle, KeyRound, Shield,
-  Lock, AlertTriangle, ChevronDown,
+  Lock, AlertTriangle, ChevronDown, Send, Trash2,
 } from 'lucide-react';
 
 export default function Users() {
@@ -120,6 +122,12 @@ export default function Users() {
       } else if (type === 'reset') {
         await resetUserPassword(user, currentUser);
         toast({ title: 'Redefinição enviada', description: `E-mail de redefinição enviado para ${user.email}.` });
+      } else if (type === 'resend') {
+        await resendInvitation(user, currentUser);
+        toast({ title: 'Convite reenviado', description: `Novo e-mail de definição de senha enviado para ${user.email}.` });
+      } else if (type === 'cancelInv') {
+        await cancelInvitation(user, currentUser);
+        toast({ title: 'Convite removido', description: `O convite de ${user.full_name || user.email} foi cancelado.` });
       }
       setConfirm(null);
       await loadData();
@@ -133,6 +141,8 @@ export default function Users() {
   const openUnblock = (user) => setConfirm({ type: 'unblock', user });
   const openRoleChange = (user, newRole) => setConfirm({ type: 'role', user, role: newRole });
   const openReset = (user) => setConfirm({ type: 'reset', user });
+  const openResend = (user) => setConfirm({ type: 'resend', user });
+  const openCancelInv = (user) => setConfirm({ type: 'cancelInv', user, destructive: true });
 
   // --- Access control ---
   if (currentUser?.role !== 'admin') {
@@ -195,6 +205,22 @@ export default function Users() {
           message: `Tem certeza que deseja redefinir a senha de ${name}? Um e-mail de redefinição será enviado para ${u.email}.`,
           confirmLabel: 'Enviar redefinição',
           destructive: false,
+          requireJustification: false,
+        };
+      case 'resend':
+        return {
+          title: 'Reenviar convite',
+          message: `Tem certeza que deseja reenviar o convite para ${name}? Um novo e-mail de definição de senha será enviado para ${u.email}.`,
+          confirmLabel: 'Reenviar convite',
+          destructive: false,
+          requireJustification: false,
+        };
+      case 'cancelInv':
+        return {
+          title: 'Remover convite pendente',
+          message: `Tem certeza que deseja cancelar o convite de ${name}? O funcionário ainda poderá ser convidado novamente depois. Esta ação não afeta contas já ativas.`,
+          confirmLabel: 'Remover convite',
+          destructive: true,
           requireJustification: false,
         };
       default:
@@ -296,6 +322,7 @@ export default function Users() {
                 {filtered.map(u => {
                   const status = getUserStatus(u);
                   const isBlocked = status === 'blocked';
+                  const isPending = !!u._isPending;
                   const isSelf = u.id === currentUser.id;
                   return (
                     <tr
@@ -322,11 +349,17 @@ export default function Users() {
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{u.phone || '—'}</td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{u.job_title || '—'}</td>
                       <td className="px-4 py-3">
-                        <RoleMenu
-                          user={u}
-                          currentUserId={currentUser.id}
-                          onRoleChange={(newRole) => openRoleChange(u, newRole)}
-                        />
+                        {isPending ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-100 text-xs font-medium text-gray-600">
+                            {STAFF_ROLES[u.role] || u.role}
+                          </span>
+                        ) : (
+                          <RoleMenu
+                            user={u}
+                            currentUserId={currentUser.id}
+                            onRoleChange={(newRole) => openRoleChange(u, newRole)}
+                          />
+                        )}
                       </td>
                       <td className="px-4 py-3">{statusBadge(status)}</td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(u.created_date)}</td>
@@ -335,37 +368,58 @@ export default function Users() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditingUser(u); setShowForm(true); }}
-                            title="Editar"
-                            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => openReset(u)}
-                            title="Redefinir acesso"
-                            className="p-1.5 rounded-lg text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-all"
-                          >
-                            <KeyRound className="w-4 h-4" />
-                          </button>
-                          {isBlocked ? (
-                            <button
-                              onClick={() => openUnblock(u)}
-                              title="Reativar"
-                              className="p-1.5 rounded-lg text-green-600 hover:bg-green-100 transition-all"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
+                          {isPending ? (
+                            <>
+                              <button
+                                onClick={() => openResend(u)}
+                                title="Reenviar convite"
+                                className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-100 hover:text-blue-600 transition-all"
+                              >
+                                <Send className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => openCancelInv(u)}
+                                title="Remover convite"
+                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-100 transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
                           ) : (
-                            <button
-                              onClick={() => openBlock(u)}
-                              disabled={isSelf}
-                              title={isSelf ? 'Não é possível bloquear a si mesmo' : 'Bloquear'}
-                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                              <Ban className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => { setEditingUser(u); setShowForm(true); }}
+                                title="Editar"
+                                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => openReset(u)}
+                                title="Redefinir acesso"
+                                className="p-1.5 rounded-lg text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-all"
+                              >
+                                <KeyRound className="w-4 h-4" />
+                              </button>
+                              {isBlocked ? (
+                                <button
+                                  onClick={() => openUnblock(u)}
+                                  title="Reativar"
+                                  className="p-1.5 rounded-lg text-green-600 hover:bg-green-100 transition-all"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => openBlock(u)}
+                                  disabled={isSelf}
+                                  title={isSelf ? 'Não é possível bloquear a si mesmo' : 'Bloquear'}
+                                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                  <Ban className="w-4 h-4" />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
