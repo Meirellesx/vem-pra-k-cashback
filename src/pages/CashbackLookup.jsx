@@ -47,6 +47,12 @@ export default function CashbackLookup() {
   };
 
   const selectCustomer = async (c) => {
+    // Regra: o funcionário não pode resgatar cashback do próprio cliente.
+    if (c.email && user?.email && c.email.toLowerCase() === user.email.toLowerCase()) {
+      setError('⚠️ Você não pode consultar/resgatar cashback do seu próprio cliente. Peça a outro operador.');
+      setSearchResults([]);
+      return;
+    }
     setCustomer(c);
     setSearchResults([]);
     setSearch(c.name);

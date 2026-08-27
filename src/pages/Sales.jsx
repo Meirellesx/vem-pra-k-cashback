@@ -52,6 +52,11 @@ export default function Sales() {
   };
 
   const selectCustomer = (c) => {
+    // Regra: o funcionário não pode registrar compra para si mesmo.
+    if (c.email && user?.email && c.email.toLowerCase() === user.email.toLowerCase()) {
+      setError('⚠️ Você não pode registrar uma venda para você mesmo. Peça a outro operador.');
+      return;
+    }
     setSelectedCustomer(c);
     setSearchResults([]);
     setSearch(c.name);

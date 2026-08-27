@@ -157,6 +157,28 @@ export const createEmployee = async (data, currentUser) => {
     console.error('Could not create staff invitation record:', e);
   }
 
+  // Cria também o registro de Cliente correspondente ao funcionário, para que ele
+  // acumule cashback nas próprias compras. O bloqueio de autocompra/autorresgate
+  // é aplicado nas telas de Vendas e Consulta de Cashback (comparando e-mails).
+  try {
+    const existingCustomer = await base44.entities.Customer.filter({ email });
+    if (!existingCustomer || existingCustomer.length === 0) {
+      await base44.entities.Customer.create({
+        name: full_name,
+        phone: phone || '',
+        email,
+        available_balance: 0,
+        pending_balance: 0,
+        total_cashback_earned: 0,
+        total_cashback_used: 0,
+        is_demo: false,
+        notes: 'Cliente criado automaticamente no cadastro de funcionário.',
+      });
+    }
+  } catch (e) {
+    console.error('Could not create matching customer record:', e);
+  }
+
   // Record terms acceptance
   if (accepts_terms && newUser) {
     try {
