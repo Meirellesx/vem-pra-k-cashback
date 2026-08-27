@@ -114,10 +114,19 @@ export default function Login() {
             Entrar com Google
           </button>
 
-          <p className="text-center text-sm text-gray-500 mt-5">
-            Novo cliente?{' '}
-            <a href="/register" className="text-orange-500 font-semibold hover:text-orange-600">Criar conta</a>
-          </p>
+          <div className="mt-5 p-4 bg-orange-50 border border-orange-200 rounded-xl">
+            <p className="text-sm text-gray-700 leading-relaxed">
+              <strong className="text-gray-900">Recebeu um convite ou é novo por aqui?</strong>
+              <br />
+              Crie sua conta e defina sua senha para ativar seu acesso.
+            </p>
+            <a
+              href="/register"
+              className="block w-full mt-3 py-2.5 text-center bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl text-sm transition-all"
+            >
+              Criar minha conta
+            </a>
+          </div>
         </div>
 
         <p className="text-center text-gray-600 text-xs mt-6">
