@@ -52,8 +52,7 @@ export const resendInvitation = async (invitation, currentUser) => {
     console.error('invite-staff on resend (continuing):', e.message);
   }
 
-  // Dispara o link de definição de senha (token único/temporário -> /reset-password).
-  await base44.auth.resetPasswordRequest(invitation.email);
+  // invite-staff já envia o e-mail customizado "Crie sua conta" (link /register).
 
   await base44.entities.StaffInvitation.update(invitation._invitationId || invitation.id, {
     invited_at: new Date().toISOString(),
