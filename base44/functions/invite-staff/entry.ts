@@ -49,19 +49,8 @@ export default async function (req: Request): Promise<Response> {
       await sleep(800);
     }
 
-    // 3. Dispara o link de definição de senha — este e-mail leva o funcionário
-    //    direto à tela de criar senha (/reset-password?token=...), finalizando o cadastro.
-    let resetSent = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await base44.auth.resetPasswordRequest(email);
-        resetSent = true;
-        break;
-      } catch (resetErr) {
-        console.error("resetPasswordRequest error:", resetErr);
-        await sleep(1000);
-      }
-    }
+    // O link de definição de senha é enviado pelo workflow "StaffResetLink",
+    // que dispara quando o convite (StaffInvitation) é criado no frontend.
 
     await base44.entities.AuditLog.create({
       user_id: user.id,
@@ -70,11 +59,11 @@ export default async function (req: Request): Promise<Response> {
       action: "create_user",
       entity_type: "User",
       entity_id: userId,
-      description: `Cadastro de funcionário: ${full_name || email} (${email}) — perfil: ${targetRole} (link de definição de senha enviado: ${resetSent ? "sim" : "não"})`,
+      description: `Cadastro de funcionário: ${full_name || email} (${email}) — perfil: ${targetRole}`,
       is_demo: false,
     });
 
-    return Response.json({ success: true, email, userId, role: targetRole, resetSent });
+    return Response.json({ success: true, email, userId, role: targetRole });
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }

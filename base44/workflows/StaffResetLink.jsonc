@@ -1,0 +1,41 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "StaffInvitation"
+    }
+  },
+  "name": "Enviar link de redefini\u00e7\u00e3o para novo funcion\u00e1rio",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "staff_reset_link",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "send_reset_link": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "send-reset-link",
+            "args": {
+              "email": "${ .trigger.data.email }",
+              "full_name": "${ .trigger.data.full_name }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Enviar link de defini\u00e7\u00e3o de senha",
+            "description": "Dispara e-mail de redefini\u00e7\u00e3o para o novo funcion\u00e1rio"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Quando um funcion\u00e1rio \u00e9 adicionado (novo convite em StaffInvitation), envia e-mail com link de defini\u00e7\u00e3o de senha para /reset-password"
+}
