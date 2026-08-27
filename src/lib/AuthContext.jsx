@@ -114,7 +114,12 @@ export const AuthProvider = ({ children }) => {
 
       // Record last login timestamp for audit purposes
       try {
-        await base44.auth.updateMe({ last_login_at: new Date().toISOString() });
+        const updates = { last_login_at: new Date().toISOString() };
+        // Primeiro acesso do funcionário: muda status de pendente para ativo.
+        if (currentUser.status === 'pending') {
+          updates.status = 'active';
+        }
+        await base44.auth.updateMe(updates);
       } catch (e) {
         console.error('Failed to update last_login_at:', e);
       }
