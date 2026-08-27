@@ -1,5 +1,16 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 
+// Senha aleatória forte usada APENAS para criar a conta. Nunca é enviada ou
+// exibida — o cliente define a própria senha via o link de reset.
+function randomPassword(length = 24): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+";
+  let pwd = "";
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  for (let i = 0; i < bytes.length; i++) pwd += chars[bytes[i] % chars.length];
+  return pwd;
+}
+
 export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -8,31 +19,29 @@ export default async function (req: Request): Promise<Response> {
     if (!user) {
       return Response.json({ success: false, error: "Não autorizado" }, { status: 401 });
     }
-
     // Apenas administradores e gerentes podem convidar clientes e ajustar perfis.
     if (user.role !== "admin" && user.role !== "manager") {
       return Response.json({ success: false, error: "Acesso restrito a administradores e gerentes" }, { status: 403 });
     }
 
     const { email, name } = await req.json();
-
     if (!email) {
       return Response.json({ success: false, error: "E-mail é obrigatório" }, { status: 400 });
     }
 
-    // 1. Cria a conta do usuário via convite (a plataforma exige role 'user').
+    // 1. Cria a conta imediatamente (register materializa o User, ao contrário
+    //    do inviteUser, que só cria o registro após o aceite).
     try {
-      await base44.users.inviteUser(email, "user");
+      await base44.auth.register({ email, password: randomPassword() });
     } catch (e) {
-      console.error("inviteUser (continuing):", e.message);
+      console.error("register (continuing):", e.message);
     }
 
-    // 2. Ajusta o perfil para 'cliente' e, se for um usuário novo, marca como
-    //    'pending' (aguardando ativação). Usuários já ativos não são rebaixados.
+    // 2. Define perfil 'cliente', verificado e status 'pending' (se for novo).
     const found = await base44.asServiceRole.entities.User.filter({ email });
     if (found.length > 0) {
       const existing = found[0];
-      const updates = { role: "cliente" };
+      const updates = { role: "cliente", is_verified: true };
       if (!existing.status || existing.status === "" || existing.status === "pending") {
         updates.status = "pending";
       }

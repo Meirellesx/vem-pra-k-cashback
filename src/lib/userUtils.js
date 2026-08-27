@@ -37,6 +37,22 @@ export const getStaffUsers = async () => {
 };
 
 export const resendInvitation = async (invitation, currentUser) => {
+  // Garante que a conta do usuário exista. O invite-staff usa register(), que
+  // materializa o registro de User imediatamente (o inviteUser original não
+  // criava o registro, e por isso o reset nunca encontrava o usuário).
+  try {
+    await base44.functions.invoke('invite-staff', {
+      email: invitation.email,
+      full_name: invitation.full_name,
+      phone: invitation.phone,
+      job_title: invitation.job_title,
+      role: invitation.role,
+    });
+  } catch (e) {
+    console.error('invite-staff on resend (continuing):', e.message);
+  }
+
+  // Dispara o link de definição de senha (token único/temporário -> /reset-password).
   await base44.auth.resetPasswordRequest(invitation.email);
 
   await base44.entities.StaffInvitation.update(invitation._invitationId || invitation.id, {
