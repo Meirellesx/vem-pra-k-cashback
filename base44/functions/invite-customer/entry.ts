@@ -1,15 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 
-// Senha aleatória forte usada APENAS para criar a conta. Nunca é enviada ou
-// exibida — o cliente define a própria senha via o link de reset.
-function randomPassword(length = 24): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+";
-  let pwd = "";
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  for (let i = 0; i < bytes.length; i++) pwd += chars[bytes[i] % chars.length];
-  return pwd;
-}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -19,7 +10,6 @@ export default async function (req: Request): Promise<Response> {
     if (!user) {
       return Response.json({ success: false, error: "Não autorizado" }, { status: 401 });
     }
-    // Apenas administradores e gerentes podem convidar clientes e ajustar perfis.
     if (user.role !== "admin" && user.role !== "manager") {
       return Response.json({ success: false, error: "Acesso restrito a administradores e gerentes" }, { status: 403 });
     }
@@ -29,29 +19,19 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: false, error: "E-mail é obrigatório" }, { status: 400 });
     }
 
-    // 1. Cria a conta imediatamente (register materializa o User, ao contrário
-    //    do inviteUser, que só cria o registro após o aceite).
-    try {
-      await base44.auth.register({ email, password: randomPassword() });
-    } catch (e) {
-      console.error("register (continuing):", e.message);
-    }
+    // Convite nativo: o e-mail leva o cliente a definir a própria senha (fluxo
+    // de registro). O registro de User verificado é criado no aceite do convite.
+    await base44.users.inviteUser(email, "user");
 
-    // 2. Define perfil 'cliente', verificado e status 'pending' (se for novo).
     const found = await base44.asServiceRole.entities.User.filter({ email });
     if (found.length > 0) {
       const existing = found[0];
-      const updates = { role: "cliente", is_verified: true };
+      const updates = { role: "cliente" };
       if (!existing.status || existing.status === "" || existing.status === "pending") {
         updates.status = "pending";
       }
       await base44.asServiceRole.entities.User.update(existing.id, updates);
     }
-
-    // O link de definição de senha é enviado pelo workflow "CustomerResetLink",
-    // que dispara quando o cliente é criado (ou tem o e-mail alterado) e chama
-    // o fluxo oficial de redefinição do Base44 (link único, temporário, com token,
-    // apontando para /reset-password).
 
     await base44.entities.AuditLog.create({
       user_id: user.id,
