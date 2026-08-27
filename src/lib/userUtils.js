@@ -61,6 +61,14 @@ export const createEmployee = async (data, currentUser) => {
     console.error('Could not update new user metadata:', e);
   }
 
+  // Envia o e-mail de definição de senha, direcionando o novo funcionário
+  // direto à página de redefinição de senha (mesmo fluxo usado para clientes).
+  try {
+    await base44.auth.resetPasswordRequest(email);
+  } catch (e) {
+    console.error('Could not send password definition email:', e);
+  }
+
   // Record terms acceptance
   if (accepts_terms && newUser) {
     try {

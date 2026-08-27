@@ -78,7 +78,7 @@ export default function Users() {
     setSaving(true);
     try {
       await createEmployee(data, currentUser);
-      toast({ title: 'Funcionário cadastrado', description: `Convite enviado para ${data.email}.` });
+      toast({ title: 'Funcionário cadastrado', description: `E-mail enviado para ${data.email} para definir a senha e acessar a plataforma.` });
       setShowForm(false);
       await loadData();
     } catch (e) {
