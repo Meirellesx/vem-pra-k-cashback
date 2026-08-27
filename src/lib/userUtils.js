@@ -94,36 +94,22 @@ export const createEmployee = async (data, currentUser) => {
   // Check for an existing pending invitation with the same email (re-add scenario)
   const existingInv = await base44.entities.StaffInvitation.filter({ email, status: 'pending' }).catch(() => []);
 
-  // Invite the user — sends email to set password securely.
-  // Failure here (e.g. already invited) is non-fatal: we still track the invitation
-  // locally so the employee shows up in the list before accepting.
-  try {
-    await base44.users.inviteUser(email, role);
-  } catch (inviteErr) {
-    try {
-      await base44.users.inviteUser(email, 'user');
-    } catch (e2) {
-      console.error('inviteUser failed (continuing anyway):', e2.message);
-    }
-  }
-
-  // Find the newly created user (only present if the invite was accepted instantly)
-  // and persist extra fields.
+  // Chama a função de backend que cria a conta, define o perfil e dispara o
+  // link de definição de senha (mesmo fluxo que funciona para clientes).
   let newUser = null;
   try {
-    const found = await base44.entities.User.filter({ email });
-    newUser = found && found.length > 0 ? found[0] : null;
-    if (newUser) {
-      await base44.entities.User.update(newUser.id, {
-        full_name: full_name,
-        phone: phone || '',
-        job_title: job_title || '',
-        status: status,
-        created_by: currentUser?.full_name || currentUser?.email || 'admin',
-      });
+    const res = await base44.functions.invoke('invite-staff', {
+      email,
+      full_name,
+      phone,
+      job_title,
+      role,
+    });
+    if (res?.userId) {
+      newUser = { id: res.userId, email };
     }
   } catch (e) {
-    console.error('Could not update new user metadata:', e);
+    console.error('invite-staff failed (continuing anyway):', e.message);
   }
 
   // Track the invitation locally so the employee appears in the list
@@ -154,14 +140,6 @@ export const createEmployee = async (data, currentUser) => {
     }
   } catch (e) {
     console.error('Could not create staff invitation record:', e);
-  }
-
-  // Envia o e-mail de definição de senha, direcionando o novo funcionário
-  // direto à página de redefinição de senha (mesmo fluxo usado para clientes).
-  try {
-    await base44.auth.resetPasswordRequest(email);
-  } catch (e) {
-    console.error('Could not send password definition email:', e);
   }
 
   // Record terms acceptance
