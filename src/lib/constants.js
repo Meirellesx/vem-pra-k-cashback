@@ -52,7 +52,7 @@ export const STAFF_ROLES = {
 export const USER_STATUS = {
   active: { label: "Ativo", color: "bg-green-100 text-green-800 border border-green-300" },
   blocked: { label: "Bloqueado", color: "bg-red-100 text-red-700 border border-red-300" },
-  pending: { label: "Pendente", color: "bg-yellow-100 text-yellow-800 border border-yellow-300" },
+  pending: { label: "Pendente de ativação", color: "bg-yellow-100 text-yellow-800 border border-yellow-300" },
 };
 
 export const STAFF_ROLE_PERMISSIONS = {

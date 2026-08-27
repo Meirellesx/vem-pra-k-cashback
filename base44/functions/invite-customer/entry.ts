@@ -27,14 +27,22 @@ export default async function (req: Request): Promise<Response> {
       console.error("inviteUser (continuing):", e.message);
     }
 
-    // 2. Ajusta o perfil para 'cliente' usando service role (acesso de admin).
+    // 2. Ajusta o perfil para 'cliente' e, se for um usuário novo, marca como
+    //    'pending' (aguardando ativação). Usuários já ativos não são rebaixados.
     const found = await base44.asServiceRole.entities.User.filter({ email });
     if (found.length > 0) {
-      await base44.asServiceRole.entities.User.update(found[0].id, { role: "cliente" });
+      const existing = found[0];
+      const updates = { role: "cliente" };
+      if (!existing.status || existing.status === "" || existing.status === "pending") {
+        updates.status = "pending";
+      }
+      await base44.asServiceRole.entities.User.update(existing.id, updates);
     }
 
     // O link de definição de senha é enviado pelo workflow "CustomerResetLink",
-    // que dispara quando o cliente é criado (ou tem o e-mail alterado).
+    // que dispara quando o cliente é criado (ou tem o e-mail alterado) e chama
+    // o fluxo oficial de redefinição do Base44 (link único, temporário, com token,
+    // apontando para /reset-password).
 
     await base44.entities.AuditLog.create({
       user_id: user.id,

@@ -36,6 +36,11 @@
       "format": "date-time",
       "title": "\u00daltimo acesso"
     },
+    "activated_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data de ativa\u00e7\u00e3o"
+    },
     "blocked_at": {
       "type": "string",
       "format": "date-time",

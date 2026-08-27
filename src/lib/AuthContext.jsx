@@ -114,12 +114,33 @@ export const AuthProvider = ({ children }) => {
 
       // Record last login timestamp for audit purposes
       try {
-        const updates = { last_login_at: new Date().toISOString() };
-        // Primeiro acesso do funcionário: muda status de pendente para ativo.
+        const now = new Date().toISOString();
+        const updates = { last_login_at: now };
+        // Primeiro acesso após definir a senha: muda status de pendente para ativo
+        // e registra a data de ativação.
         if (currentUser.status === 'pending') {
           updates.status = 'active';
+          updates.activated_at = now;
         }
         await base44.auth.updateMe(updates);
+
+        // Audita a ativação da conta (primeiro acesso após o usuário definir a senha).
+        if (currentUser.status === 'pending') {
+          try {
+            await base44.entities.AuditLog.create({
+              user_id: currentUser.id,
+              user_name: currentUser.full_name || currentUser.email,
+              user_role: currentUser.role,
+              action: 'activate_user',
+              entity_type: 'User',
+              entity_id: currentUser.id,
+              description: `Ativação da conta: ${currentUser.full_name || currentUser.email} definiu a senha e acessou o sistema.`,
+              is_demo: false,
+            });
+          } catch (e) {
+            console.error('Failed to audit activation:', e);
+          }
+        }
       } catch (e) {
         console.error('Failed to update last_login_at:', e);
       }

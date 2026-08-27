@@ -18,7 +18,17 @@ export default function Login() {
       await base44.auth.loginViaEmailPassword(email, password);
       window.location.href = returnTo;
     } catch (err) {
-      setError('E-mail ou senha incorretos. Tente novamente.');
+      const msg = (err?.message || '').toLowerCase();
+      const status = err?.status;
+      if (status === 403 || msg.includes('block') || msg.includes('desativ') || msg.includes('disabled')) {
+        setError('Sua conta está bloqueada. Entre em contato com o administrador.');
+      } else if (status === 404 || msg.includes('not found') || msg.includes('não encontr')) {
+        setError('E-mail não encontrado. Verifique o endereço digitado.');
+      } else if (status === 400 && (msg.includes('verif') || msg.includes('activ'))) {
+        setError('Conta ainda não ativada. Use o link de definição de senha enviado por e-mail.');
+      } else {
+        setError('E-mail ou senha incorretos. Tente novamente.');
+      }
     } finally {
       setLoading(false);
     }

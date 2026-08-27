@@ -19,7 +19,17 @@ export default function ResetPassword() {
       setDone(true);
       setTimeout(() => { window.location.href = '/login'; }, 2000);
     } catch (err) {
-      setError('Link inválido ou expirado.');
+      const msg = (err?.message || '').toLowerCase();
+      const status = err?.status;
+      if (msg.includes('expir') || status === 410) {
+        setError('O link expirou. Solicite um novo link de ativação no painel administrativo.');
+      } else if (msg.includes('utiliz') || msg.includes('used') || status === 409) {
+        setError('Este link já foi utilizado. Solicite um novo link de ativação.');
+      } else if (msg.includes('inválid') || msg.includes('invalid') || status === 404 || status === 400) {
+        setError('Link inválido. Verifique se você abriu o link mais recente enviado por e-mail.');
+      } else {
+        setError('Não foi possível redefinir a senha. O link pode estar inválido ou expirado.');
+      }
     } finally { setLoading(false); }
   };
 

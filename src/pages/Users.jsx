@@ -313,7 +313,8 @@ export default function Users() {
                   <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Cargo</th>
                   <th className="text-left px-4 py-3 font-semibold">Perfil</th>
                   <th className="text-left px-4 py-3 font-semibold">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Criado em</th>
+                  <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Convite</th>
+                  <th className="text-left px-4 py-3 font-semibold whitespace-nowrap hidden lg:table-cell">Ativação</th>
                   <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Último acesso</th>
                   <th className="text-right px-4 py-3 font-semibold">Ações</th>
                 </tr>
@@ -363,6 +364,9 @@ export default function Users() {
                       </td>
                       <td className="px-4 py-3">{statusBadge(status)}</td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(u.created_date)}</td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap hidden lg:table-cell">
+                        {u.activated_at ? formatDate(u.activated_at) : (getUserStatus(u) === 'pending' ? 'Pendente' : '—')}
+                      </td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                         {u.last_login_at ? formatDateTime(u.last_login_at) : '—'}
                       </td>
