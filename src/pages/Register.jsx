@@ -4,7 +4,7 @@ import { safeReturnTo } from '@/lib/authReturnTo';
 
 export default function Register() {
   const [step, setStep] = useState('form');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => new URLSearchParams(window.location.search).get('email') || '');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [otp, setOtp] = useState('');

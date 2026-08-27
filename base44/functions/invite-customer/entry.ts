@@ -1,6 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const APP_URL = "https://vem-pra-k-cashback.base44.app";
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -19,19 +19,30 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: false, error: "E-mail é obrigatório" }, { status: 400 });
     }
 
-    // Convite nativo: o e-mail leva o cliente a definir a própria senha (fluxo
-    // de registro). O registro de User verificado é criado no aceite do convite.
-    await base44.users.inviteUser(email, "user");
+    // E-mail customizado de ativação: leva o cliente direto ao cadastro, onde ele
+    // cria a própria senha (com verificação por código). Não usamos inviteUser
+    // porque o convite nativo diz "Entrar" e não é personalizável.
+    const registerUrl = `${APP_URL}/register?email=${encodeURIComponent(email)}`;
 
-    const found = await base44.asServiceRole.entities.User.filter({ email });
-    if (found.length > 0) {
-      const existing = found[0];
-      const updates = { role: "cliente" };
-      if (!existing.status || existing.status === "" || existing.status === "pending") {
-        updates.status = "pending";
-      }
-      await base44.asServiceRole.entities.User.update(existing.id, updates);
-    }
+    await base44.integrations.Core.SendEmail({
+      to: email,
+      subject: "Crie sua conta no Vem Pra K Cashback",
+      body: `Olá${name ? " " + name : ""},
+
+Você foi cadastrado(a) no programa de cashback Vem Pra K! 🎉
+
+Para ativar sua conta e acessar seu saldo de cashback, crie sua senha agora mesmo:
+
+${registerUrl}
+
+É rápido: informe seu e-mail, defina sua senha e confirme o código que você receberá por e-mail.
+
+Após ativar, você acompanha seu saldo e histórico de cashback na sua área.
+
+Bem-vindo(a)!
+
+Equipe Vem Pra K Cashback`,
+    });
 
     await base44.entities.AuditLog.create({
       user_id: user.id,
@@ -39,7 +50,7 @@ export default async function (req: Request): Promise<Response> {
       user_role: user.role,
       action: "invite_customer",
       entity_type: "Customer",
-      description: `Convite de acesso enviado para ${name || email} — ${email}`,
+      description: `Convite de criação de conta enviado para ${name || email} — ${email}`,
       is_demo: false,
     });
 
