@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
-import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback, getAvailableDate, getExpiryDate, createAuditLog } from '@/lib/cashbackUtils';
+import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback, getAvailableDate, getExpiryDate, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag } from 'lucide-react';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
@@ -24,18 +24,21 @@ export default function Sales() {
   const [done, setDone] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [myCustomer, setMyCustomer] = useState(null);
 
   useEffect(() => {
     loadInit();
   }, []);
 
   const loadInit = async () => {
-    const [s, cats] = await Promise.all([
+    const [s, cats, mine] = await Promise.all([
       getSettings(),
       base44.entities.ProductCategory.filter({ is_active: true }),
+      getMyCustomer(user),
     ]);
     setSettings(s);
     setCategories(cats);
+    setMyCustomer(mine);
   };
 
   const handleSearch = async (q) => {
@@ -53,7 +56,7 @@ export default function Sales() {
 
   const selectCustomer = (c) => {
     // Regra: o funcionário não pode registrar compra para si mesmo.
-    if (c.email && user?.email && c.email.toLowerCase() === user.email.toLowerCase()) {
+    if (isOwnCustomer(user, c, myCustomer)) {
       setError('⚠️ Você não pode registrar uma venda para você mesmo. Peça a outro operador.');
       return;
     }
@@ -66,6 +69,10 @@ export default function Sales() {
 
   const handleCreateCustomer = async () => {
     if (!newCustomerForm.name || !newCustomerForm.phone) return;
+    if (isOwnCustomer(user, { name: newCustomerForm.name, email: newCustomerForm.email }, myCustomer)) {
+      setError('⚠️ Você não pode cadastrar um cliente com os seus próprios dados. Peça a outro operador.');
+      return;
+    }
     try {
       const { cpfToIdentifierCode } = await import('@/lib/cashbackUtils');
       const code = cpfToIdentifierCode(newCustomerForm.cpf);

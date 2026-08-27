@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
-import { formatCurrency, formatDate, formatPhone, getSettings, createAuditLog } from '@/lib/cashbackUtils';
+import { formatCurrency, formatDate, formatPhone, getSettings, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, Wallet, Clock, CheckCircle, AlertTriangle, ShoppingCart } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 
@@ -23,12 +23,14 @@ export default function CashbackLookup() {
   const [redeeming, setRedeeming] = useState(false);
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyError, setVerifyError] = useState('');
+  const [myCustomer, setMyCustomer] = useState(null);
 
   useEffect(() => { loadSettings(); }, []);
 
   const loadSettings = async () => {
     const s = await getSettings();
     setSettings(s);
+    setMyCustomer(await getMyCustomer(user));
   };
 
   const handleSearch = async (q) => {
@@ -48,7 +50,7 @@ export default function CashbackLookup() {
 
   const selectCustomer = async (c) => {
     // Regra: o funcionário não pode resgatar cashback do próprio cliente.
-    if (c.email && user?.email && c.email.toLowerCase() === user.email.toLowerCase()) {
+    if (isOwnCustomer(user, c, myCustomer)) {
       setError('⚠️ Você não pode consultar/resgatar cashback do seu próprio cliente. Peça a outro operador.');
       setSearchResults([]);
       return;

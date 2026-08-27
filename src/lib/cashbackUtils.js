@@ -107,3 +107,31 @@ export const exportToCSV = (data, filename, headers) => {
   link.download = filename;
   link.click();
 };
+
+// Retorna o registro de Cliente vinculado ao operador (pelo e-mail), usado para
+// o bloqueio de autocompra/autorresgate.
+export const getMyCustomer = async (user) => {
+  if (!user?.email) return null;
+  try {
+    const found = await base44.entities.Customer.filter({ email: user.email });
+    return found && found.length > 0 ? found[0] : null;
+  } catch (e) { return null; }
+};
+
+// Verifica se o cliente selecionado "é" o próprio operador. Se o cliente tem
+// e-mail, decide só pelo e-mail (sem falso-positivo por nome). Se o cliente
+// NÃO tem e-mail (caso comum de cadastro rápido sem e-mail), cai pra comparação
+// de nome — assim pega quem cria um cliente "duplicado de si mesmo".
+export const isOwnCustomer = (user, customer, myOwnCustomer) => {
+  if (!user || !customer) return false;
+  const uEmail = (user.email || '').toLowerCase().trim();
+  const cEmail = (customer.email || '').toLowerCase().trim();
+  if (uEmail && cEmail) return uEmail === cEmail;
+  if (myOwnCustomer && customer.id === myOwnCustomer.id) return true;
+  if (!cEmail) {
+    const uName = (user.full_name || '').toLowerCase().trim();
+    const cName = (customer.name || '').toLowerCase().trim();
+    if (uName && cName && uName === cName) return true;
+  }
+  return false;
+};
