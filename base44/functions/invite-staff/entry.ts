@@ -31,11 +31,14 @@ export default async function (req: Request): Promise<Response> {
 
     const targetRole = STAFF_ROLES.includes(role) ? role : "cashier";
 
-    // E-mail customizado de ativação: leva o funcionário ao cadastro, onde ele
-    // cria a própria senha (com verificação por código). Não usamos inviteUser
-    // porque o convite nativo diz "Entrar" e não é personalizável. O perfil é
-    // aplicado automaticamente quando o funcionário conclui o cadastro
-    // (função assign-staff-role, chamada pelo HomeRedirect no primeiro acesso).
+    // 1) Convite nativo da plataforma: é o canal garantido de entrega para um
+    //    destinatário ainda NÃO cadastrado (chega mesmo sem domínio próprio).
+    //    Leva ao /login, onde o botão "Criar minha conta" permite definir a senha.
+    await base44.users.inviteUser(email, "user");
+
+    // 2) Segundo e-mail customizado "Crie sua conta" com link direto ao cadastro.
+    //    Chega com certeza para endereços já cadastrados; para novos destinatários
+    //    pode exigir domínio próprio conectado ao app — por isso mantemos o (1).
     const registerUrl = `${APP_URL}/register?email=${encodeURIComponent(email)}`;
 
     await base44.integrations.Core.SendEmail({
