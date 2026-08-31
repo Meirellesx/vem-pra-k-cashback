@@ -154,7 +154,7 @@ export default function Sales() {
       const data = res?.data;
       if (data?.error) throw new Error(data.error);
 
-      setDone({ sale: data.sale, cashback: data.cashback_amount, customer: selectedCustomer, cashbackStatus });
+      setDone({ sale: data.sale, cashback: data.cashback_amount, customer: selectedCustomer, cashbackStatus, txId: data.cashback_transaction_id || null });
       setStep('done');
     } catch (e) {
       setError('Erro ao registrar venda: ' + e.message);
@@ -205,6 +205,12 @@ export default function Sales() {
               </div>
             )}
             {done.cashback === 0 && <p className="text-sm text-gray-400 text-center">Nenhum cashback gerado para esta venda.</p>}
+            {done.txId && (
+              <div className="flex justify-between py-2">
+                <span className="text-gray-500 text-sm">ID da transação de cashback</span>
+                <span className="font-mono text-xs text-gray-700 break-all text-right max-w-[60%]" data-selectable>{done.txId}</span>
+              </div>
+            )}
           </div>
           <button onClick={handleReset} className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl text-sm shadow-lg shadow-orange-500/30">
             Nova Venda
