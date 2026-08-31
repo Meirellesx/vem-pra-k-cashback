@@ -47,7 +47,7 @@ export default function InternalLogin() {
       const dest = routeByRole(data.operator.role);
       navigate(dest, { replace: true });
     } catch (err) {
-      setError(err.message || 'Falha no login.');
+      setError(err?.response?.data?.error || err?.message || 'Falha no login.');
     } finally {
       setLoading(false);
     }
