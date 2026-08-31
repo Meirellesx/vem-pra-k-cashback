@@ -59,6 +59,7 @@ export const updateEmployee = async (target, data, currentUser) => {
     full_name: data.full_name,
     phone: data.phone,
     job_title: data.job_title,
+    role: data.role,
     actor_id: operator?.id,
     actor_name: operator?.full_name,
   });

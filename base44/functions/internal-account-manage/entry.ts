@@ -132,22 +132,30 @@ export default async function (req: Request): Promise<Response> {
     }
 
     if (action === "update") {
-      const { id, full_name, phone, job_title } = body;
+      const { id, full_name, phone, job_title, role } = body;
       if (!id) return Response.json({ success: false, error: "ID obrigatório." });
       const before = await pgGet(key, ref, "internal_accounts", id);
       const updates: Record<string, unknown> = {};
       if (full_name !== undefined) updates.full_name = full_name;
       if (phone !== undefined) updates.phone = phone || "";
       if (job_title !== undefined) updates.job_title = job_title || "";
+      let roleChanged = false;
+      const prevRole = before.role;
+      if (role !== undefined && role !== null && role !== before.role) {
+        if (!STAFF_ROLES.includes(role)) {
+          return Response.json({ success: false, error: "Perfil inválido." });
+        }
+        updates.role = role;
+        roleChanged = true;
+      }
       if (full_name && before.linked_customer_id) {
         await pgUpdate(key, ref, "customers", before.linked_customer_id, { name: full_name }).catch(() => {});
       }
       await pgUpdate(key, ref, "internal_accounts", id, updates);
-      await audit(
-        "update_internal_account",
-        id,
-        `Login interno atualizado: ${before.full_name || before.username}`
-      );
+      const desc = roleChanged
+        ? `Login interno atualizado: ${before.full_name || before.username} — perfil: ${roleLabel(prevRole || "")} → ${roleLabel(role)}`
+        : `Login interno atualizado: ${before.full_name || before.username}`;
+      await audit("update_internal_account", id, desc);
       return Response.json({ success: true, id });
     }
 

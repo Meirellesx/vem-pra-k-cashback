@@ -179,35 +179,30 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Perfil de acesso <span className="text-red-500">*</span>
             </label>
-            {isEdit ? (
-              <div className="px-3 py-2.5 bg-gray-100 rounded-xl text-sm text-gray-600 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-gray-400" />
-                {STAFF_ROLES[form.role] || form.role}
-                <span className="text-xs text-gray-400 ml-auto">Use "Alterar Perfil" na lista para mudar</span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {staffRoleOptions.map((r) => {
-                  const active = form.role === r;
-                  return (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setForm({ ...form, role: r })}
-                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                        active
-                          ? 'border-orange-500 bg-orange-50 text-orange-700 ring-2 ring-orange-500/30'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${active ? 'border-orange-500' : 'border-gray-300'}`}>
-                        {active && <span className="w-2 h-2 rounded-full bg-orange-500" />}
-                      </span>
-                      {STAFF_ROLES[r]}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="grid grid-cols-2 gap-2">
+              {staffRoleOptions.map((r) => {
+                const active = form.role === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setForm({ ...form, role: r })}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      active
+                        ? 'border-orange-500 bg-orange-50 text-orange-700 ring-2 ring-orange-500/30'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${active ? 'border-orange-500' : 'border-gray-300'}`}>
+                      {active && <span className="w-2 h-2 rounded-full bg-orange-500" />}
+                    </span>
+                    {STAFF_ROLES[r]}
+                  </button>
+                );
+              })}
+            </div>
+            {isEdit && (
+              <p className="text-xs text-gray-400 mt-1">A alteração de perfil é registrada no log de auditoria.</p>
             )}
           </div>
 
