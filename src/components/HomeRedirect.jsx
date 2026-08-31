@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
+import { isMasterAccount, getInternalSession } from '@/lib/internalAuth';
 
 export default function HomeRedirect() {
   const { user } = useAuth();
@@ -10,7 +11,8 @@ export default function HomeRedirect() {
   // Usuários recém-cadastrados (perfil padrão "user") podem ter um convite de
   // funcionário pendente. Verificamos antes de redirecionar: se houver, aplicamos
   // o perfil e recarregamos para o redirecionamento considerar o perfil correto.
-  const needsStaffCheck = role === 'user' || role === undefined || role === null;
+  const needsStaffCheck =
+    !isMasterAccount(user) && (role === 'user' || role === undefined || role === null);
   const [checking, setChecking] = useState(needsStaffCheck);
 
   useEffect(() => {
@@ -34,7 +36,17 @@ export default function HomeRedirect() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, user?.email, user?.id]);
+  }, [needsStaffCheck, role, user?.email, user?.id]);
+
+  // Conta mestra: o acesso real é controlado pelo login interno.
+  if (isMasterAccount(user)) {
+    const internal = getInternalSession();
+    if (!internal) return <Navigate to="/login-interno" replace />;
+    if (internal.role === 'cashier' || internal.role === 'operador') {
+      return <Navigate to="/vendas" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (checking) {
     return (

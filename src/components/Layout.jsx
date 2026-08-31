@@ -1,8 +1,9 @@
 import React, { useState, Suspense, useRef, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { base44 } from '@/api/base44Client';
+import { isMasterAccount } from '@/lib/internalAuth';
 import {
   LayoutDashboard, Users, ShoppingCart, Settings, FileText, Shield,
   BarChart3, LogOut, Menu, X, ChevronRight, Wallet, UserCircle,
@@ -83,14 +84,20 @@ const navByRole = {
 };
 
 export default function Layout() {
-  const { user } = useAuth();
+  const { user, internalUser, clearInternalSession } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  const role = user?.role || 'cliente';
+  const isMaster = isMasterAccount(user);
+
+  // Perfil efetivo: na conta mestra, vem do login interno; nos demais, do Base44.
+  const role = isMaster ? internalUser?.role : user?.role || 'cliente';
   const navItems = navByRole[role] || navByRole.cliente;
   const isCustomer = role === 'cliente' || role === 'user';
+
+  // Identidade exibida na barra lateral.
+  const displayName = isMaster ? internalUser?.full_name : user?.full_name || 'Usuário';
 
   // Layout-level scroll cache: preserve scroll depth across customer MobileNav tab switches.
   const mainRef = useRef(null);
@@ -122,7 +129,21 @@ export default function Layout() {
     return () => cancelAnimationFrame(id);
   }, [location.pathname, isCustomer]);
 
-  const handleLogout = () => { base44.auth.logout('/login'); };
+  // Conta mestra sem login interno ativo → não tem acesso às telas internas.
+  // (Guarda após os hooks para respeitar as rules-of-hooks.)
+  if (isMaster && !internalUser) {
+    return <Navigate to="/login-interno" replace />;
+  }
+
+  const handleLogout = () => {
+    if (isMaster) {
+      // A conta mestra do Base44 permanece logada no aparelho; só encerra a sessão do funcionário.
+      clearInternalSession();
+      window.location.href = '/login-interno';
+      return;
+    }
+    base44.auth.logout('/login');
+  };
 
   const NavLink = ({ item }) => {
     const Icon = item.icon;
@@ -155,10 +176,10 @@ export default function Layout() {
       <div className="p-4 border-t border-white/10">
         <div className="flex items-center gap-3 mb-3 px-2">
           <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-sm">
-            {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+            {displayName?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-white text-sm font-semibold truncate">{user?.full_name || 'Usuário'}</div>
+            <div className="text-white text-sm font-semibold truncate">{displayName}</div>
             <div className="text-gray-400 text-xs capitalize">{role}</div>
           </div>
         </div>

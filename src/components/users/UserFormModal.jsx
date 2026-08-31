@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Phone, Briefcase, User, ShieldCheck, Save } from 'lucide-react';
-import { STAFF_ROLES, USER_STATUS } from '@/lib/constants';
+import { X, Mail, Phone, Briefcase, User, ShieldCheck, Save, KeyRound } from 'lucide-react';
+import { STAFF_ROLES } from '@/lib/constants';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
 
 export default function UserFormModal({ open, editingUser, onSave, onCancel, saving }) {
@@ -13,8 +13,8 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
     cpf: '',
     job_title: '',
     role: 'cashier',
-    status: 'pending',
-    accepts_terms: true,
+    password: '',
+    confirm: '',
   });
 
   const [error, setError] = useState('');
@@ -26,11 +26,11 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
           full_name: editingUser.full_name || '',
           email: editingUser.email || '',
           phone: editingUser.phone || '',
-          cpf: '',
+          cpf: editingUser.cpf || '',
           job_title: editingUser.job_title || '',
           role: editingUser.role || 'cashier',
-          status: editingUser.status || 'active',
-          accepts_terms: true,
+          password: '',
+          confirm: '',
         });
       } else {
         setForm({
@@ -40,8 +40,8 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
           cpf: '',
           job_title: '',
           role: 'cashier',
-          status: 'pending',
-          accepts_terms: true,
+          password: '',
+          confirm: '',
         });
       }
       setError('');
@@ -54,8 +54,11 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
     if (!form.full_name.trim()) return setError('Nome completo é obrigatório.');
     if (!form.email.trim()) return setError('E-mail é obrigatório.');
     if (!form.role) return setError('Perfil de acesso é obrigatório.');
-    if (!form.status) return setError('Status inicial é obrigatório.');
-    if (!isEdit && !form.accepts_terms) return setError('O aceite dos termos de uso internos é obrigatório.');
+    if (!isEdit) {
+      if (!form.password) return setError('Defina uma senha inicial para o funcionário.');
+      if (form.password.length < 4) return setError('A senha deve ter ao menos 4 caracteres.');
+      if (form.password !== form.confirm) return setError('As senhas não conferem.');
+    }
 
     onSave({
       ...form,
@@ -64,6 +67,7 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
       phone: form.phone.trim(),
       cpf: form.cpf ? form.cpf.trim() : '',
       job_title: form.job_title.trim(),
+      password: form.password,
     });
   };
 
@@ -82,6 +86,13 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
         </div>
 
         <div className="p-5 space-y-4">
+          {!isEdit && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-gray-700">
+              O login interno dispensa e-mail de ativação. Você define a senha agora e entrega ao
+              funcionário, que entra direto com usuário e senha no aparelho da loja.
+            </div>
+          )}
+
           {/* Nome */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -99,10 +110,10 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
             </div>
           </div>
 
-          {/* E-mail */}
+          {/* E-mail / Usuário */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              E-mail <span className="text-red-500">*</span>
+              E-mail (usuário de login) <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -115,7 +126,7 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
                 className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:text-gray-500"
               />
             </div>
-            {isEdit && <p className="text-xs text-gray-400 mt-1">O e-mail não pode ser alterado.</p>}
+            {isEdit && <p className="text-xs text-gray-400 mt-1">O e-mail/usuário não pode ser alterado.</p>}
           </div>
 
           {/* Telefone */}
@@ -133,23 +144,21 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
             </div>
           </div>
 
-          {/* CPF (somente no cadastro — vai para o cliente de cashback do funcionário) */}
-          {!isEdit && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
-              <div className="relative">
-                <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={form.cpf}
-                  onChange={e => setForm({ ...form, cpf: e.target.value })}
-                  placeholder="000.000.000-00"
-                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-1">Usado para o funcionário acumular/resgatar cashback nas próprias compras.</p>
+          {/* CPF */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+            <div className="relative">
+              <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={form.cpf}
+                onChange={e => setForm({ ...form, cpf: e.target.value })}
+                placeholder="000.000.000-00"
+                className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
             </div>
-          )}
+            <p className="text-xs text-gray-400 mt-1">Usado para o funcionário acumular/resgatar cashback nas próprias compras.</p>
+          </div>
 
           {/* Cargo */}
           <div>
@@ -188,46 +197,39 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
             )}
           </div>
 
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status inicial <span className="text-red-500">*</span>
-            </label>
-            {isEdit ? (
-              <div className="px-3 py-2.5 bg-gray-100 rounded-xl text-sm text-gray-600">
-                {USER_STATUS[form.status]?.label || form.status}
-                <span className="text-xs text-gray-400 ml-2">— use as ações na lista para alterar</span>
-              </div>
-            ) : (
-              <DrawerSelect
-                value={form.status}
-                onChange={(v) => setForm({ ...form, status: v })}
-                label="Status inicial"
-                className="w-full px-3 py-2.5 text-sm min-w-0"
-                options={[
-                  { value: 'pending', label: 'Pendente (aguardando primeiro acesso)' },
-                  { value: 'active', label: 'Ativo' },
-                ]}
-              />
-            )}
-          </div>
-
-          {/* Terms (only on create) */}
+          {/* Senha inicial (somente no cadastro) */}
           {!isEdit && (
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.accepts_terms}
-                  onChange={e => setForm({ ...form, accepts_terms: e.target.checked })}
-                  className="mt-0.5 w-4 h-4 rounded accent-orange-500"
-                />
-                <span className="text-xs text-gray-700">
-                  Declaro que o funcionário foi informado e aceita os <strong>termos de uso internos</strong> e
-                  a política de acesso do sistema Vem Pra K Cashback. O usuário receberá um e-mail para
-                  definir sua própria senha de acesso.
-                </span>
-              </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Senha inicial <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={form.password}
+                    onChange={e => setForm({ ...form, password: e.target.value })}
+                    placeholder="Senha"
+                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirmar senha <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={form.confirm}
+                    onChange={e => setForm({ ...form, confirm: e.target.value })}
+                    placeholder="Repita a senha"
+                    className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -248,7 +250,7 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
             className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium text-sm transition-all disabled:opacity-50 flex items-center gap-2"
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Cadastrar e enviar convite'}
+            {saving ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Cadastrar funcionário'}
           </button>
         </div>
       </div>

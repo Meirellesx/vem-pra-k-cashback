@@ -108,28 +108,49 @@ export const exportToCSV = (data, filename, headers) => {
   link.click();
 };
 
-// Retorna o registro de Cliente vinculado ao operador (pelo e-mail), usado para
-// o bloqueio de autocompra/autorresgate.
-export const getMyCustomer = async (user) => {
-  if (!user?.email) return null;
+// Retorna o registro de Cliente vinculado ao operador, usado para o bloqueio
+// de autocompra/autorresgate. No login interno, o vínculo é direto pelo
+// linked_customer_id; no acesso Base44 normal, cai para o e-mail.
+export const getMyCustomer = async (operator) => {
+  if (!operator) return null;
   try {
-    const found = await base44.entities.Customer.filter({ email: user.email });
-    return found && found.length > 0 ? found[0] : null;
+    if (operator.linked_customer_id) {
+      const c = await base44.entities.Customer.get(operator.linked_customer_id).catch(() => null);
+      if (c) return c;
+    }
+    if (operator.email) {
+      const byEmail = await base44.entities.Customer.filter({ email: operator.email });
+      if (byEmail && byEmail.length > 0) return byEmail[0];
+    }
+    const cpfDigits = (operator.cpf || '').replace(/\D/g, '');
+    if (cpfDigits) {
+      const byCpf = await base44.entities.Customer.filter({ identifier_code: cpfDigits });
+      if (byCpf && byCpf.length > 0) return byCpf[0];
+    }
+    return null;
   } catch (e) { return null; }
 };
 
-// Verifica se o cliente selecionado "é" o próprio operador. Se o cliente tem
-// e-mail, decide só pelo e-mail (sem falso-positivo por nome). Se o cliente
-// NÃO tem e-mail (caso comum de cadastro rápido sem e-mail), cai pra comparação
-// de nome — assim pega quem cria um cliente "duplicado de si mesmo".
-export const isOwnCustomer = (user, customer, myOwnCustomer) => {
-  if (!user || !customer) return false;
-  const uEmail = (user.email || '').toLowerCase().trim();
+// Compara CPF apenas em dígitos.
+const onlyDigits = (v) => (v || '').replace(/\D/g, '');
+
+// Verifica se o cliente selecionado "é" o próprio operador. No login interno,
+// compara também pelo CPF vinculado. Caso o cliente tenha e-mail, decide pelo
+// e-mail; sem e-mail, cai para comparação de nome.
+export const isOwnCustomer = (operator, customer, myOwnCustomer) => {
+  if (!operator || !customer) return false;
+  const uEmail = (operator.email || '').toLowerCase().trim();
   const cEmail = (customer.email || '').toLowerCase().trim();
   if (uEmail && cEmail) return uEmail === cEmail;
+
+  // Login interno: compara pelo CPF (vinculado ao perfil de cliente).
+  const uCpf = onlyDigits(operator.cpf);
+  const cCpf = onlyDigits(customer.cpf) || onlyDigits(customer.identifier_code);
+  if (uCpf && cCpf && uCpf === cCpf) return true;
+
   if (myOwnCustomer && customer.id === myOwnCustomer.id) return true;
   if (!cEmail) {
-    const uName = (user.full_name || '').toLowerCase().trim();
+    const uName = (operator.full_name || '').toLowerCase().trim();
     const cName = (customer.name || '').toLowerCase().trim();
     if (uName && cName && uName === cName) return true;
   }

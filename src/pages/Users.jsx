@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 import UserStats from '@/components/users/UserStats';
 import UserFormModal from '@/components/users/UserFormModal';
 import ConfirmDialog from '@/components/users/ConfirmDialog';
+import ResetPasswordModal from '@/components/users/ResetPasswordModal';
 import {
   getStaffUsers,
   getUserStatus,
@@ -14,19 +15,19 @@ import {
   reactivateUser,
   changeUserRole,
   resetUserPassword,
-  resendInvitation,
-  cancelInvitation,
 } from '@/lib/userUtils';
-import { STAFF_ROLES, USER_STATUS, STAFF_ROLE_PERMISSIONS } from '@/lib/constants';
+import { getOperator } from '@/lib/internalAuth';
+import { STAFF_ROLES, USER_STATUS } from '@/lib/constants';
 import { formatDateTime, formatDate } from '@/lib/cashbackUtils';
 import {
-  UserCog, Search, Plus, Edit, Ban, CheckCircle, KeyRound, Shield,
-  Lock, AlertTriangle, ChevronDown, Send, Trash2,
+  UserCog, Search, Plus, Edit, Ban, CheckCircle, KeyRound, Lock, ChevronDown,
 } from 'lucide-react';
 
 export default function Users() {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
+
+  const operator = getOperator(currentUser);
 
   const [users, setUsers] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
@@ -40,19 +41,21 @@ export default function Users() {
   const [saving, setSaving] = useState(false);
 
   const [confirm, setConfirm] = useState(null);
-  // confirm = { type, user, role?, loading }
+
+  const [resetTarget, setResetTarget] = useState(null);
+  const [resetSaving, setResetSaving] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [staff, logs] = await Promise.all([
         getStaffUsers(),
-        base44.entities.AuditLog.filter({ entity_type: 'User' }, '-created_date', 15).catch(() => []),
+        base44.entities.AuditLog.filter({ entity_type: 'InternalAccount' }, '-created_date', 15).catch(() => []),
       ]);
       setUsers(staff);
       setRecentLogs(logs || []);
     } catch (e) {
-      toast({ title: 'Erro', description: 'Falha ao carregar usuários.', variant: 'destructive' });
+      toast({ title: 'Erro', description: 'Falha ao carregar funcionários.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -66,9 +69,7 @@ export default function Users() {
       const email = (u.email || '').toLowerCase();
       const q = search.toLowerCase();
       const matchesSearch = !search || name.includes(q) || email.includes(q);
-      const matchesRole = roleFilter === 'all' ||
-        (roleFilter === 'cliente' && (u.role === 'cliente' || u.role === 'user')) ||
-        u.role === roleFilter;
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
       const matchesStatus = statusFilter === 'all' || getUserStatus(u) === statusFilter;
       return matchesSearch && matchesRole && matchesStatus;
     });
@@ -80,7 +81,7 @@ export default function Users() {
     setSaving(true);
     try {
       await createEmployee(data, currentUser);
-      toast({ title: 'Funcionário cadastrado', description: `E-mail enviado para ${data.email} para definir a senha e acessar a plataforma.` });
+      toast({ title: 'Funcionário cadastrado', description: `Login interno criado para ${data.full_name}. Entregue a senha definida.` });
       setShowForm(false);
       await loadData();
     } catch (e) {
@@ -93,7 +94,7 @@ export default function Users() {
   const handleEdit = async (data) => {
     setSaving(true);
     try {
-      await updateEmployee(editingUser, data, currentUser, 'Atualização de dados do funcionário');
+      await updateEmployee(editingUser, data, currentUser);
       toast({ title: 'Funcionário atualizado', description: 'Dados salvos com sucesso.' });
       setShowForm(false);
       setEditingUser(null);
@@ -118,16 +119,7 @@ export default function Users() {
         toast({ title: 'Usuário reativado', description: `${user.full_name || user.email} foi reativado.` });
       } else if (type === 'role') {
         await changeUserRole(user, confirm.role, currentUser, justification);
-        toast({ title: 'Perfil alterado', description: `Novo perfil: ${STAFF_ROLES[confirm.role]}. O usuário precisará fazer login novamente.` });
-      } else if (type === 'reset') {
-        await resetUserPassword(user, currentUser);
-        toast({ title: 'Redefinição enviada', description: `E-mail de redefinição enviado para ${user.email}.` });
-      } else if (type === 'resend') {
-        await resendInvitation(user, currentUser);
-        toast({ title: 'Convite reenviado', description: `Novo e-mail de definição de senha enviado para ${user.email}.` });
-      } else if (type === 'cancelInv') {
-        await cancelInvitation(user, currentUser);
-        toast({ title: 'Convite removido', description: `O convite de ${user.full_name || user.email} foi cancelado.` });
+        toast({ title: 'Perfil alterado', description: `Novo perfil: ${STAFF_ROLES[confirm.role]}. O funcionário precisará entrar novamente.` });
       }
       setConfirm(null);
       await loadData();
@@ -137,12 +129,24 @@ export default function Users() {
     }
   };
 
+  const handleResetPassword = async (newPassword) => {
+    setResetSaving(true);
+    try {
+      await resetUserPassword(resetTarget, newPassword, currentUser);
+      toast({ title: 'Senha redefinida', description: `Nova senha definida para ${resetTarget.full_name || resetTarget.email}.` });
+      setResetTarget(null);
+      await loadData();
+    } catch (e) {
+      toast({ title: 'Erro', description: e.message || 'Falha ao redefinir senha.', variant: 'destructive' });
+    } finally {
+      setResetSaving(false);
+    }
+  };
+
   const openBlock = (user) => setConfirm({ type: 'block', user, destructive: true });
   const openUnblock = (user) => setConfirm({ type: 'unblock', user });
   const openRoleChange = (user, newRole) => setConfirm({ type: 'role', user, role: newRole });
-  const openReset = (user) => setConfirm({ type: 'reset', user });
-  const openResend = (user) => setConfirm({ type: 'resend', user });
-  const openCancelInv = (user) => setConfirm({ type: 'cancelInv', user, destructive: true });
+  const openReset = (user) => setResetTarget(user);
 
   // --- Access control ---
   if (currentUser?.role !== 'admin') {
@@ -178,7 +182,7 @@ export default function Users() {
       case 'block':
         return {
           title: 'Bloquear funcionário',
-          message: `Tem certeza que deseja bloquear ${name}? O usuário não poderá acessar o sistema até ser reativado. Vendas e movimentações anteriores serão preservadas.`,
+          message: `Tem certeza que deseja bloquear ${name}? O funcionário não poderá acessar o sistema até ser reativado. Vendas e movimentações anteriores serão preservadas.`,
           confirmLabel: 'Bloquear',
           destructive: true,
           requireJustification: true,
@@ -186,7 +190,7 @@ export default function Users() {
       case 'unblock':
         return {
           title: 'Reativar funcionário',
-          message: `Tem certeza que deseja reativar ${name}? O usuário voltará a ter acesso ao sistema.`,
+          message: `Tem certeza que deseja reativar ${name}? O funcionário voltará a ter acesso ao sistema.`,
           confirmLabel: 'Reativar',
           destructive: false,
           requireJustification: false,
@@ -194,34 +198,10 @@ export default function Users() {
       case 'role':
         return {
           title: 'Alterar perfil de acesso',
-          message: `Tem certeza que deseja alterar o perfil de ${name} para "${STAFF_ROLES[confirm.role]}"? Esta ação exigirá que o usuário faça login novamente.`,
+          message: `Tem certeza que deseja alterar o perfil de ${name} para "${STAFF_ROLES[confirm.role]}"? O funcionário precisará entrar novamente.`,
           confirmLabel: 'Confirmar alteração',
           destructive: false,
           requireJustification: true,
-        };
-      case 'reset':
-        return {
-          title: 'Redefinir acesso',
-          message: `Tem certeza que deseja redefinir a senha de ${name}? Um e-mail de redefinição será enviado para ${u.email}.`,
-          confirmLabel: 'Enviar redefinição',
-          destructive: false,
-          requireJustification: false,
-        };
-      case 'resend':
-        return {
-          title: 'Reenviar convite',
-          message: `Tem certeza que deseja reenviar o convite para ${name}? Um novo e-mail de definição de senha será enviado para ${u.email}.`,
-          confirmLabel: 'Reenviar convite',
-          destructive: false,
-          requireJustification: false,
-        };
-      case 'cancelInv':
-        return {
-          title: 'Remover convite pendente',
-          message: `Tem certeza que deseja cancelar o convite de ${name}? O funcionário ainda poderá ser convidado novamente depois. Esta ação não afeta contas já ativas.`,
-          confirmLabel: 'Remover convite',
-          destructive: true,
-          requireJustification: false,
         };
       default:
         return {};
@@ -238,7 +218,7 @@ export default function Users() {
             Usuários e Funcionários
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Gerencie funcionários, perfis de acesso e segurança do sistema.
+            Crie logins internos e gerencie perfis de acesso — sem depender de e-mail.
           </p>
         </div>
         <button
@@ -276,7 +256,6 @@ export default function Users() {
             <option value="manager">Gerente</option>
             <option value="cashier">Operador de Caixa</option>
             <option value="viewer">Consulta</option>
-            <option value="cliente">Cliente</option>
             <option value="operador">Operador (legado)</option>
           </select>
           <select
@@ -287,7 +266,6 @@ export default function Users() {
             <option value="all">Todos os status</option>
             <option value="active">Ativo</option>
             <option value="blocked">Bloqueado</option>
-            <option value="pending">Pendente</option>
           </select>
         </div>
       </div>
@@ -301,7 +279,7 @@ export default function Users() {
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center text-gray-400">
             <UserCog className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="text-sm">Nenhum usuário encontrado com os filtros atuais.</p>
+            <p className="text-sm">Nenhum funcionário encontrado com os filtros atuais.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -313,8 +291,7 @@ export default function Users() {
                   <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Cargo</th>
                   <th className="text-left px-4 py-3 font-semibold">Perfil</th>
                   <th className="text-left px-4 py-3 font-semibold">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Convite</th>
-                  <th className="text-left px-4 py-3 font-semibold whitespace-nowrap hidden lg:table-cell">Ativação</th>
+                  <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Criado em</th>
                   <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Último acesso</th>
                   <th className="text-right px-4 py-3 font-semibold">Ações</th>
                 </tr>
@@ -323,8 +300,7 @@ export default function Users() {
                 {filtered.map(u => {
                   const status = getUserStatus(u);
                   const isBlocked = status === 'blocked';
-                  const isPending = !!u._isPending;
-                  const isSelf = u.id === currentUser.id;
+                  const isSelf = u.id === operator?.id;
                   return (
                     <tr
                       key={u.id}
@@ -350,80 +326,50 @@ export default function Users() {
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{u.phone || '—'}</td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{u.job_title || '—'}</td>
                       <td className="px-4 py-3">
-                        {isPending ? (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-100 text-xs font-medium text-gray-600">
-                            {STAFF_ROLES[u.role] || u.role}
-                          </span>
-                        ) : (
-                          <RoleMenu
-                            user={u}
-                            currentUserId={currentUser.id}
-                            onRoleChange={(newRole) => openRoleChange(u, newRole)}
-                          />
-                        )}
+                        <RoleMenu
+                          user={u}
+                          operatorId={operator?.id}
+                          onRoleChange={(newRole) => openRoleChange(u, newRole)}
+                        />
                       </td>
                       <td className="px-4 py-3">{statusBadge(status)}</td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(u.created_date)}</td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap hidden lg:table-cell">
-                        {u.activated_at ? formatDate(u.activated_at) : (getUserStatus(u) === 'pending' ? 'Pendente' : '—')}
-                      </td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                         {u.last_login_at ? formatDateTime(u.last_login_at) : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          {isPending ? (
-                            <>
-                              <button
-                                onClick={() => openResend(u)}
-                                title="Reenviar convite"
-                                className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-100 hover:text-blue-600 transition-all"
-                              >
-                                <Send className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => openCancelInv(u)}
-                                title="Remover convite"
-                                className="p-1.5 rounded-lg text-red-500 hover:bg-red-100 transition-all"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </>
+                          <button
+                            onClick={() => { setEditingUser(u); setShowForm(true); }}
+                            title="Editar"
+                            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => openReset(u)}
+                            title="Redefinir senha"
+                            className="p-1.5 rounded-lg text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-all"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </button>
+                          {isBlocked ? (
+                            <button
+                              onClick={() => openUnblock(u)}
+                              title="Reativar"
+                              className="p-1.5 rounded-lg text-green-600 hover:bg-green-100 transition-all"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
                           ) : (
-                            <>
-                              <button
-                                onClick={() => { setEditingUser(u); setShowForm(true); }}
-                                title="Editar"
-                                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => openReset(u)}
-                                title="Redefinir acesso"
-                                className="p-1.5 rounded-lg text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-all"
-                              >
-                                <KeyRound className="w-4 h-4" />
-                              </button>
-                              {isBlocked ? (
-                                <button
-                                  onClick={() => openUnblock(u)}
-                                  title="Reativar"
-                                  className="p-1.5 rounded-lg text-green-600 hover:bg-green-100 transition-all"
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => openBlock(u)}
-                                  disabled={isSelf}
-                                  title={isSelf ? 'Não é possível bloquear a si mesmo' : 'Bloquear'}
-                                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                                >
-                                  <Ban className="w-4 h-4" />
-                                </button>
-                              )}
-                            </>
+                            <button
+                              onClick={() => openBlock(u)}
+                              disabled={isSelf}
+                              title={isSelf ? 'Não é possível bloquear a si mesmo' : 'Bloquear'}
+                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </td>
@@ -445,6 +391,15 @@ export default function Users() {
         onCancel={() => { setShowForm(false); setEditingUser(null); }}
       />
 
+      {/* Reset password modal */}
+      <ResetPasswordModal
+        open={!!resetTarget}
+        user={resetTarget}
+        saving={resetSaving}
+        onSave={handleResetPassword}
+        onCancel={() => setResetTarget(null)}
+      />
+
       {/* Confirm dialog */}
       <ConfirmDialog
         open={!!confirm}
@@ -462,11 +417,10 @@ export default function Users() {
 }
 
 // Inline role dropdown component
-function RoleMenu({ user, currentUserId, onRoleChange }) {
+function RoleMenu({ user, operatorId, onRoleChange }) {
   const [open, setOpen] = useState(false);
-  const isSelf = user.id === currentUserId;
-  const roleOptions = ['admin', 'manager', 'cashier', 'viewer', 'cliente'];
-  const currentRoleKey = user.role === 'user' ? 'cliente' : user.role;
+  const isSelf = user.id === operatorId;
+  const roleOptions = ['admin', 'manager', 'cashier', 'viewer'];
 
   return (
     <div className="relative">
@@ -489,15 +443,15 @@ function RoleMenu({ user, currentUserId, onRoleChange }) {
                 key={r}
                 onClick={() => {
                   setOpen(false);
-                  if (r !== currentRoleKey) onRoleChange(r);
+                  if (r !== user.role) onRoleChange(r);
                 }}
-                disabled={r === currentRoleKey}
+                disabled={r === user.role}
                 className={`w-full text-left px-3 py-1.5 text-xs hover:bg-orange-50 transition-colors flex items-center justify-between ${
-                  r === currentRoleKey ? 'text-gray-400 cursor-default' : 'text-gray-700'
+                  r === user.role ? 'text-gray-400 cursor-default' : 'text-gray-700'
                 }`}
               >
                 <span>{STAFF_ROLES[r]}</span>
-                {r === currentRoleKey && <CheckCircle className="w-3 h-3 text-orange-500" />}
+                {r === user.role && <CheckCircle className="w-3 h-3 text-orange-500" />}
               </button>
             ))}
             {isSelf && (

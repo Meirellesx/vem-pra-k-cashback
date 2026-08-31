@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getSettings, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, Wallet, Clock, CheckCircle, AlertTriangle, ShoppingCart } from 'lucide-react';
+import { getOperator } from '@/lib/internalAuth';
 import StatusBadge from '@/components/ui/StatusBadge';
 
 export default function CashbackLookup() {

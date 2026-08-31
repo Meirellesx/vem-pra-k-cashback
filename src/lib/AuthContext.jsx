@@ -2,6 +2,12 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
+import {
+  getInternalSession,
+  setInternalSession as persistInternalSession,
+  clearInternalSession as persistClearInternal,
+  isMasterAccount,
+} from '@/lib/internalAuth';
 
 const AuthContext = createContext();
 
@@ -13,6 +19,7 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [internalSession, setInternalSessionState] = useState(() => getInternalSession());
 
   useEffect(() => {
     checkAppState();
@@ -178,6 +185,19 @@ export const AuthProvider = ({ children }) => {
     base44.auth.redirectToLogin(window.location.href);
   };
 
+  // Sessão do login interno — só existe quando a conta mestra está logada.
+  const internalUser = isMasterAccount(user) ? internalSession : null;
+
+  const setInternalSession = (operator) => {
+    persistInternalSession(operator);
+    setInternalSessionState(operator);
+  };
+
+  const clearInternalSession = () => {
+    persistClearInternal();
+    setInternalSessionState(null);
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -190,7 +210,10 @@ export const AuthProvider = ({ children }) => {
       logout,
       navigateToLogin,
       checkUserAuth,
-      checkAppState
+      checkAppState,
+      internalUser,
+      setInternalSession,
+      clearInternalSession,
     }}>
       {children}
     </AuthContext.Provider>

@@ -4,12 +4,14 @@ import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback, getAvailableDate, getExpiryDate, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag } from 'lucide-react';
 import { PAYMENT_METHODS } from '@/lib/constants';
+import { getOperator } from '@/lib/internalAuth';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
 
 const today = () => new Date().toISOString().split('T')[0];
 
 export default function Sales() {
   const { user } = useAuth();
+  const operator = getOperator(user);
   const [settings, setSettings] = useState(null);
   const [step, setStep] = useState('search'); // search | details | confirm | done
   const [search, setSearch] = useState('');
@@ -34,7 +36,7 @@ export default function Sales() {
     const [s, cats, mine] = await Promise.all([
       getSettings(),
       base44.entities.ProductCategory.filter({ is_active: true }),
-      getMyCustomer(user),
+      getMyCustomer(operator),
     ]);
     setSettings(s);
     setCategories(cats);
@@ -56,7 +58,7 @@ export default function Sales() {
 
   const selectCustomer = (c) => {
     // Regra: o funcionário não pode registrar compra para si mesmo.
-    if (isOwnCustomer(user, c, myCustomer)) {
+    if (isOwnCustomer(operator, c, myCustomer)) {
       setError('⚠️ Você não pode registrar uma venda para você mesmo. Peça a outro operador.');
       return;
     }
@@ -69,7 +71,7 @@ export default function Sales() {
 
   const handleCreateCustomer = async () => {
     if (!newCustomerForm.name || !newCustomerForm.phone) return;
-    if (isOwnCustomer(user, { name: newCustomerForm.name, email: newCustomerForm.email }, myCustomer)) {
+    if (isOwnCustomer(operator, { name: newCustomerForm.name, email: newCustomerForm.email }, myCustomer)) {
       setError('⚠️ Você não pode cadastrar um cliente com os seus próprios dados. Peça a outro operador.');
       return;
     }
@@ -81,7 +83,7 @@ export default function Sales() {
         available_balance: 0, pending_balance: 0,
         total_cashback_earned: 0, total_cashback_used: 0, is_demo: false,
       });
-      await createAuditLog(user, 'create_customer', 'Customer', created.id, `Novo cliente via caixa: ${newCustomerForm.name}`, '', null, newCustomerForm);
+      await createAuditLog(operator, 'create_customer', 'Customer', created.id, `Novo cliente via caixa: ${newCustomerForm.name}`, '', null, newCustomerForm);
       selectCustomer(created);
       setNewCustomerMode(false);
     } catch (e) { setError('Erro ao cadastrar cliente.'); }
@@ -138,7 +140,7 @@ export default function Sales() {
         category_id: selectedCategory || '',
         status: 'concluida',
         cashback_generated: cbAmount > 0,
-        operator_id: user?.id || '',
+        operator_id: operator?.id || '',
         notes: form.notes,
         is_demo: false,
       });
@@ -157,7 +159,7 @@ export default function Sales() {
           transaction_date: form.sale_date,
           available_date: cashbackCalc.availDate,
           expiry_date: cashbackCalc.expiryDate,
-          operator_id: user?.id || '',
+          operator_id: operator?.id || '',
           is_demo: false,
         });
         txId = tx.id;
@@ -172,7 +174,7 @@ export default function Sales() {
         await base44.entities.Sale.update(sale.id, { cashback_transaction_id: txId });
       }
 
-      await createAuditLog(user, 'register_sale', 'Sale', sale.id, `Venda #${form.sale_number} registrada para ${selectedCustomer?.name || 'cliente'} — ${formatCurrency(total)}`, '', null, sale);
+      await createAuditLog(operator, 'register_sale', 'Sale', sale.id, `Venda #${form.sale_number} registrada para ${selectedCustomer?.name || 'cliente'} — ${formatCurrency(total)}`, '', null, sale);
 
       setDone({ sale, cashback: cbAmount, customer: selectedCustomer, cashbackStatus });
       setStep('done');

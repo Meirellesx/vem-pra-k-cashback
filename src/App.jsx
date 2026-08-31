@@ -32,6 +32,7 @@ const StatementPage = lazy(() => import('@/pages/StatementPage'));
 const ProgramRules = lazy(() => import('@/pages/ProgramRules'));
 const Privacy = lazy(() => import('@/pages/Privacy'));
 const MeuCodigo = lazy(() => import('@/pages/MeuCodigo'));
+const InternalLogin = lazy(() => import('@/pages/InternalLogin'));
 
 const FullScreenLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-[#0A0A0A]">
@@ -83,6 +84,7 @@ const AuthenticatedApp = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+          <Route path="/login-interno" element={<InternalLogin />} />
           <Route element={<Layout />}>
             {/* Admin & Operator routes */}
             <Route path="/" element={<HomeRedirect />} />

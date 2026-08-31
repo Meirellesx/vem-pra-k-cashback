@@ -1,0 +1,110 @@
+{
+  "name": "InternalAccount",
+  "type": "object",
+  "properties": {
+    "username": {
+      "type": "string",
+      "title": "Usu\u00e1rio (login)"
+    },
+    "full_name": {
+      "type": "string",
+      "title": "Nome"
+    },
+    "email": {
+      "type": "string",
+      "title": "E-mail"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Telefone"
+    },
+    "cpf": {
+      "type": "string",
+      "title": "CPF"
+    },
+    "job_title": {
+      "type": "string",
+      "title": "Cargo / Fun\u00e7\u00e3o"
+    },
+    "role": {
+      "type": "string",
+      "title": "Perfil de acesso",
+      "enum": [
+        "admin",
+        "manager",
+        "cashier",
+        "viewer",
+        "operador"
+      ],
+      "default": "cashier"
+    },
+    "password_hash": {
+      "type": "string",
+      "title": "Hash da senha"
+    },
+    "password_salt": {
+      "type": "string",
+      "title": "Salt da senha"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "active",
+        "blocked",
+        "pending"
+      ],
+      "default": "active"
+    },
+    "linked_customer_id": {
+      "type": "string",
+      "title": "ID do cliente de cashback vinculado"
+    },
+    "last_login_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "\u00daltimo acesso"
+    },
+    "failed_attempts": {
+      "type": "number",
+      "title": "Tentativas inv\u00e1lidas",
+      "default": 0
+    },
+    "locked_until": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Bloqueado at\u00e9"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Observa\u00e7\u00f5es"
+    }
+  },
+  "required": [
+    "username",
+    "full_name",
+    "role"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,5 +1,9 @@
 export const LOGO_URL = "https://media.base44.com/files/public/user_68df03321ddb88e340d96028/9df156de3_Logo.pdf";
 
+// Conta Base44 "mestra": logada nos aparelhos compartilhados da loja.
+// Quem opera nela é identificado pelo login interno (usuário + senha).
+export const MASTER_STAFF_EMAIL = "vendas.wilmaflor@gmail.com";
+
 export const BRAND = {
   orange: "#FF6B00",
   orangeLight: "#FF8C33",
