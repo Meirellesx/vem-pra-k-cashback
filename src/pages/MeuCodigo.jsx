@@ -3,11 +3,25 @@ import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCpf } from '@/lib/cashbackUtils';
+import { Copy, Check } from 'lucide-react';
 
 export default function MeuCodigo() {
   const { user } = useAuth();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    const code = customer?.identifier_code || customer?.cpf || '';
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch (e) {
+      // fallback silencioso — ainda exibimos o feedback
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     (async () => {
@@ -54,8 +68,16 @@ export default function MeuCodigo() {
           <div className="text-white font-mono text-xs font-bold mt-1">{formatCpf(customer.identifier_code)}</div>
         </div>
         <p className="text-sm text-gray-500 mb-2">Apresente seu CPF no caixa</p>
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="w-full bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-center gap-2 hover:bg-orange-100 transition-colors active:scale-[0.98]"
+        >
           <span className="font-mono font-black text-orange-600 text-xl tracking-widest">{formatCpf(customer.identifier_code)}</span>
+          {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-orange-500" />}
+        </button>
+        <div role="status" aria-live="polite" className="h-5 mt-2">
+          {copied && <span className="text-green-600 text-sm font-semibold">Copiado!</span>}
         </div>
       </div>
     </div>
