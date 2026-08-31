@@ -1,3 +1,5 @@
+// Adaptador CRUD genérico para as tabelas do projeto "Cashback" no Supabase.
+// Usa o módulo compartilhado supabase.ts (project ref hardcoded + retry na service key).
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
   getConnection, getProjectRef, ensureTables, listTables,

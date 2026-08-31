@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
 import Sale from '@/lib/salesDb';
-import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback, getAvailableDate, getExpiryDate, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag } from 'lucide-react';
@@ -130,57 +129,32 @@ export default function Sales() {
       const cbAmount = cashbackCalc?.amount || 0;
       const cashbackStatus = cashbackCalc?.status || 'disponivel';
 
-      // Create sale
-      const sale = await Sale.create({
+      // Registro atômico em uma única função de backend (evita o rate-limit do
+      // Supabase Management API que ocorria com 5 chamadas rápidas sequenciais).
+      const res = await base44.functions.invoke('register-sale', {
         sale_number: form.sale_number,
-        customer_id: selectedCustomer?.id || '',
-        customer_name: selectedCustomer?.name || '',
+        customer_id: selectedCustomer?.id || null,
+        customer_name: selectedCustomer?.name || null,
         total_amount: total,
         eligible_amount: total,
         cashback_amount: cbAmount,
-        cashback_used: 0,
         payment_method: form.payment_method,
         sale_date: form.sale_date,
         category_id: selectedCategory || null,
-        status: 'concluida',
-        cashback_generated: cbAmount > 0,
         operator_id: operator?.id || null,
-        notes: form.notes,
+        notes: form.notes || '',
         is_demo: false,
+        generate_cashback: cbAmount > 0 && !!selectedCustomer,
+        cashback_status: cashbackStatus,
+        available_date: cashbackCalc?.availDate || null,
+        expiry_date: cashbackCalc?.expiryDate || null,
+        operator_name: operator?.full_name || '',
+        operator_role: operator?.role || '',
       });
+      const data = res?.data;
+      if (data?.error) throw new Error(data.error);
 
-      let txId = null;
-      if (cbAmount > 0 && selectedCustomer) {
-        // Create cashback transaction
-        const tx = await CashbackTransaction.create({
-          customer_id: selectedCustomer.id,
-          customer_name: selectedCustomer.name,
-          sale_id: sale.id,
-          sale_number: form.sale_number,
-          amount: cbAmount,
-          type: 'gerado',
-          status: cashbackStatus,
-          transaction_date: form.sale_date,
-          available_date: cashbackCalc.availDate,
-          expiry_date: cashbackCalc.expiryDate,
-          operator_id: operator?.id || null,
-          is_demo: false,
-        });
-        txId = tx.id;
-
-        // Update customer balance
-        const balanceUpdate = cashbackStatus === 'disponivel'
-          ? { available_balance: (selectedCustomer.available_balance || 0) + cbAmount, total_cashback_earned: (selectedCustomer.total_cashback_earned || 0) + cbAmount }
-          : { pending_balance: (selectedCustomer.pending_balance || 0) + cbAmount, total_cashback_earned: (selectedCustomer.total_cashback_earned || 0) + cbAmount };
-        await Customer.update(selectedCustomer.id, balanceUpdate);
-
-        // Update sale with transaction id
-        await Sale.update(sale.id, { cashback_transaction_id: txId });
-      }
-
-      await createAuditLog(operator, 'register_sale', 'Sale', sale.id, `Venda #${form.sale_number} registrada para ${selectedCustomer?.name || 'cliente'} — ${formatCurrency(total)}`, '', null, sale);
-
-      setDone({ sale, cashback: cbAmount, customer: selectedCustomer, cashbackStatus });
+      setDone({ sale: data.sale, cashback: data.cashback_amount, customer: selectedCustomer, cashbackStatus });
       setStep('done');
     } catch (e) {
       setError('Erro ao registrar venda: ' + e.message);

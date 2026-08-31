@@ -18,21 +18,16 @@ export async function getConnection(base44) {
   return conn;
 }
 
-// Resolve o project ref listando os projetos e procurando por nome "Cashback".
+// Project ref estável do projeto "Cashback" no Supabase.
+// Hardcoded para evitar chamar a Management API (listar TODOS os projetos) a cada
+// operação de CRUD — isso causava rate-limit (HTTP 500) sob chamadas rápidas sequenciais.
+const HARDCODED_PROJECT_REF = 'raafupwilsmuuyxdskca';
+
+// Resolve o project ref. Usa o valor hardcoded (estável) e evita a chamada à
+// Management API. Mantém assinatura com accessToken por compatibilidade.
 export async function getProjectRef(accessToken) {
   if (cachedRef) return cachedRef;
-  const res = await fetch(`${API_BASE}/projects`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) {
-    throw new Error(`Erro ao listar projetos Supabase (${res.status}): ${await res.text()}`);
-  }
-  const projects = await res.json();
-  const match = (projects || []).find((p) => p.name === PROJECT_NAME);
-  if (!match) {
-    throw new Error(`Projeto '${PROJECT_NAME}' não encontrado no Supabase. Verifique o nome do projeto no painel do Supabase.`);
-  }
-  cachedRef = match.id;
+  cachedRef = HARDCODED_PROJECT_REF;
   return cachedRef;
 }
 
@@ -189,21 +184,31 @@ export async function listTables(accessToken, ref) {
 
 // ===== PostgREST (acesso a linhas via service_role key) =====
 
-// Obtém e cacheia a service_role key do projeto.
+// Obtém e cacheia a service_role key do projeto. Tenta até 3 vezes com backoff
+// para tolerar falhas transitórias da Management API sob carga rápida.
 export async function getServiceRoleKey(accessToken, ref) {
   if (cachedKey && cachedKeyRef === ref) return cachedKey;
-  const res = await fetch(`${API_BASE}/projects/${ref}/api-keys`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) {
-    throw new Error(`Erro ao obter chave service_role (${res.status}): ${await res.text()}`);
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}/projects/${ref}/api-keys`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        throw new Error(`Erro ao obter chave service_role (${res.status}): ${await res.text()}`);
+      }
+      const keys = await res.json();
+      const sr = (keys || []).find((k) => k.name === 'service_role');
+      if (!sr) throw new Error('Chave service_role não encontrada no projeto Supabase.');
+      cachedKey = sr.api_key;
+      cachedKeyRef = ref;
+      return cachedKey;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
   }
-  const keys = await res.json();
-  const sr = (keys || []).find((k) => k.name === 'service_role');
-  if (!sr) throw new Error('Chave service_role não encontrada no projeto Supabase.');
-  cachedKey = sr.api_key;
-  cachedKeyRef = ref;
-  return cachedKey;
+  throw lastErr;
 }
 
 function pgUrl(ref, table) {
