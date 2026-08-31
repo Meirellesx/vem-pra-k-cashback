@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
+import CashbackTransaction from '@/lib/cashbackTransactionsDb';
+import CashbackRedemption from '@/lib/redemptionsDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getSettings, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, Wallet, Clock, CheckCircle, AlertTriangle, ShoppingCart } from 'lucide-react';
@@ -63,7 +65,7 @@ export default function CashbackLookup() {
     setError('');
     setSuccess('');
     setLoading(true);
-    const txs = await base44.entities.CashbackTransaction.filter({ customer_id: c.id });
+    const txs = await CashbackTransaction.filter({ customer_id: c.id });
     const sorted = txs.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
     setTransactions(sorted);
     setLoading(false);
@@ -169,13 +171,13 @@ export default function CashbackLookup() {
       for (const tx of availableTransactions) {
         if (remaining <= 0) break;
         const useFromThis = Math.min(remaining, tx.amount);
-        await base44.entities.CashbackTransaction.update(tx.id, { status: 'usado' });
+        await CashbackTransaction.update(tx.id, { status: 'usado' });
         usedTxIds.push(tx.id);
         remaining -= useFromThis;
       }
 
       // Create redemption usage transaction
-      const usageTx = await base44.entities.CashbackTransaction.create({
+      const usageTx = await CashbackTransaction.create({
         customer_id: customer.id,
         customer_name: customer.name,
         sale_number: redeemSaleNumber,
@@ -189,7 +191,7 @@ export default function CashbackLookup() {
       });
 
       // Create redemption record
-      await base44.entities.CashbackRedemption.create({
+      await CashbackRedemption.create({
         customer_id: customer.id,
         customer_name: customer.name,
         sale_number: redeemSaleNumber,

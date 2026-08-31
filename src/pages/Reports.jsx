@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
+import Sale from '@/lib/salesDb';
+import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/cashbackUtils';
 import { BarChart3, Download, TrendingUp, Wallet, Clock, XCircle, ShoppingCart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -30,8 +32,8 @@ export default function Reports() {
     setLoading(true);
     try {
       const [sales, transactions, customers] = await Promise.all([
-        base44.entities.Sale.filter({ is_demo: false }),
-        base44.entities.CashbackTransaction.filter({ is_demo: false }),
+        Sale.filter({ is_demo: false }),
+        CashbackTransaction.filter({ is_demo: false }),
         Customer.filter({ is_demo: false }),
       ]);
 

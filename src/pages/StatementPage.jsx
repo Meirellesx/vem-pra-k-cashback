@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
+import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/cashbackUtils';
 import { FileText, Download, Filter, RefreshCw } from 'lucide-react';
@@ -24,7 +25,7 @@ export default function StatementPage() {
     const mine = all.find(c => c.created_by_id === user?.id);
     if (mine) {
       setCustomer(mine);
-      const txs = await base44.entities.CashbackTransaction.filter({ customer_id: mine.id });
+      const txs = await CashbackTransaction.filter({ customer_id: mine.id });
       setTransactions(txs.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date)));
     }
     setLoading(false);

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
+import Sale from '@/lib/salesDb';
+import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone } from '@/lib/cashbackUtils';
 import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle, RefreshCw } from 'lucide-react';
@@ -38,9 +40,9 @@ export default function CustomerArea() {
       );
       if (mine) {
         setCustomer(mine);
-        const txs = await base44.entities.CashbackTransaction.filter({ customer_id: mine.id });
+        const txs = await CashbackTransaction.filter({ customer_id: mine.id });
         setTransactions(txs.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date)));
-        const sls = await base44.entities.Sale.filter({ customer_id: mine.id });
+        const sls = await Sale.filter({ customer_id: mine.id });
         setSales(sls.sort((a, b) => new Date(b.sale_date) - new Date(a.sale_date)));
       }
     } catch (e) { console.error(e); }

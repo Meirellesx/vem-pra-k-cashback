@@ -1,12 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
   getConnection, getProjectRef, ensureTables, listTables,
-  getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete,
+  getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql,
 } from '../../shared/supabase.ts';
 
 // Tabelas permitidas para CRUD genérico via esta função.
 // (Expande conforme cada entidade é migrada para o Supabase.)
-const CRUD_TABLES = new Set(['customers']);
+const CRUD_TABLES = new Set(['customers', 'sales', 'cashback_transactions', 'cashback_redemptions']);
 
 export default async function(req) {
   try {
@@ -21,7 +21,7 @@ export default async function(req) {
     const ref = await getProjectRef(conn.accessToken);
 
     // ===== Operações administrativas (setup / saúde / migração) =====
-    if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateCustomers') {
+    if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateCustomers' || op === 'resetCustomerBalances') {
       if (user.role !== 'admin') {
         return Response.json({ error: 'Forbidden — apenas administradores.' }, { status: 403 });
       }
@@ -57,6 +57,13 @@ export default async function(req) {
         inserted++;
       }
       return Response.json({ success: true, inserted, skipped, total: all.length });
+    }
+
+    if (op === 'resetCustomerBalances') {
+      // Zera saldos/totalizadores de todos os clientes (dados de teste).
+      await runSql(conn.accessToken, ref,
+        'UPDATE customers SET available_balance = 0, pending_balance = 0, total_cashback_earned = 0, total_cashback_used = 0;');
+      return Response.json({ success: true });
     }
 
     // ===== CRUD genérico (autenticado, tabelas permitidas) =====

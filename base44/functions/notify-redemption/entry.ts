@@ -1,4 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
+import { getConnection, getProjectRef, getServiceRoleKey, pgGet } from "../../shared/supabase.ts";
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -22,7 +23,10 @@ export default async function (req: Request): Promise<Response> {
     }
 
     // Busca o cliente para obter o e-mail
-    const customer = await base44.entities.Customer.get(customer_id);
+    const conn = await getConnection(base44);
+    const ref = await getProjectRef(conn.accessToken);
+    const key = await getServiceRoleKey(conn.accessToken, ref);
+    const customer = await pgGet(key, ref, "customers", customer_id);
     let email = customer?.email;
 
     // Se o cliente não tem e-mail próprio, busca o usuário que o criou.

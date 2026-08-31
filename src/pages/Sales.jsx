@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
+import Sale from '@/lib/salesDb';
+import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback, getAvailableDate, getExpiryDate, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag } from 'lucide-react';
@@ -112,7 +114,7 @@ export default function Sales() {
       setError('Preencha todos os campos obrigatórios.'); return;
     }
     // Check duplicate
-    const existing = await base44.entities.Sale.filter({ sale_number: form.sale_number });
+    const existing = await Sale.filter({ sale_number: form.sale_number });
     if (existing.length > 0) {
       setError(`⚠️ Venda #${form.sale_number} já foi registrada! Verifique o número.`); return;
     }
@@ -128,7 +130,7 @@ export default function Sales() {
       const cashbackStatus = cashbackCalc?.status || 'disponivel';
 
       // Create sale
-      const sale = await base44.entities.Sale.create({
+      const sale = await Sale.create({
         sale_number: form.sale_number,
         customer_id: selectedCustomer?.id || '',
         customer_name: selectedCustomer?.name || '',
@@ -149,7 +151,7 @@ export default function Sales() {
       let txId = null;
       if (cbAmount > 0 && selectedCustomer) {
         // Create cashback transaction
-        const tx = await base44.entities.CashbackTransaction.create({
+        const tx = await CashbackTransaction.create({
           customer_id: selectedCustomer.id,
           customer_name: selectedCustomer.name,
           sale_id: sale.id,
@@ -172,7 +174,7 @@ export default function Sales() {
         await Customer.update(selectedCustomer.id, balanceUpdate);
 
         // Update sale with transaction id
-        await base44.entities.Sale.update(sale.id, { cashback_transaction_id: txId });
+        await Sale.update(sale.id, { cashback_transaction_id: txId });
       }
 
       await createAuditLog(operator, 'register_sale', 'Sale', sale.id, `Venda #${form.sale_number} registrada para ${selectedCustomer?.name || 'cliente'} — ${formatCurrency(total)}`, '', null, sale);
