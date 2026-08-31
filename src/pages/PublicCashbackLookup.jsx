@@ -13,7 +13,7 @@ export default function PublicCashbackLookup() {
   const handleSearch = async (e) => {
     e.preventDefault();
     const q = query.trim();
-    if (q.length < 3) {
+    if (!q) {
       setError('Digite seu CPF, telefone ou código de identificação.');
       return;
     }
@@ -25,7 +25,6 @@ export default function PublicCashbackLookup() {
       const data = res?.data ?? res;
       if (data?.error) throw new Error(data.error);
       setResult(data);
-      if (!data?.found) setError('Nenhum cliente encontrado com esses dados. Verifique e tente novamente.');
     } catch (e) {
       setError('Não foi possível consultar agora. Tente novamente em instantes.');
     } finally {
@@ -72,41 +71,51 @@ export default function PublicCashbackLookup() {
         </div>
       )}
 
+      {result && !result.found && (
+        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-2xl text-center">
+          <div className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+            <Search className="w-5 h-5 text-gray-400" />
+          </div>
+          <p className="font-bold text-gray-800 text-sm">Nenhum cliente encontrado</p>
+          <p className="text-gray-500 text-sm mt-0.5">Verifique os dados e tente novamente.</p>
+        </div>
+      )}
+
       {result?.found && (
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="text-xs text-gray-500 mb-1">Cliente encontrado</div>
-            <div className="font-bold text-gray-900 mb-4">{result.name_masked}</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Wallet className="w-4 h-4 text-green-600" />
-                  <span className="text-[11px] font-semibold text-green-700 uppercase tracking-wide">Disponível</span>
-                </div>
-                <div className="text-xl font-black text-green-600">{formatCurrency(result.available_balance)}</div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-4">
+          <div className="text-xs text-gray-500 mb-1">Cliente encontrado</div>
+          <div className="font-bold text-gray-900 mb-4">{result.name_masked}</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Wallet className="w-4 h-4 text-green-600" />
+                <span className="text-[11px] font-semibold text-green-700 uppercase tracking-wide">Disponível</span>
               </div>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Clock className="w-4 h-4 text-yellow-600" />
-                  <span className="text-[11px] font-semibold text-yellow-700 uppercase tracking-wide">Pendente</span>
-                </div>
-                <div className="text-xl font-black text-yellow-600">{formatCurrency(result.pending_balance)}</div>
+              <div className="text-xl font-black text-green-600">{formatCurrency(result.available_balance)}</div>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Clock className="w-4 h-4 text-yellow-600" />
+                <span className="text-[11px] font-semibold text-yellow-700 uppercase tracking-wide">Pendente</span>
               </div>
+              <div className="text-xl font-black text-yellow-600">{formatCurrency(result.pending_balance)}</div>
             </div>
           </div>
+        </div>
+      )}
 
-          {s && (
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-3 text-sm">Regras do programa</h3>
-              <ul className="space-y-1.5 text-sm text-gray-600">
-                <li>• <strong>{s.cashback_percentage}%</strong> de cashback nas compras</li>
-                <li>• Compra mínima para usar: <strong>{formatCurrency(s.min_purchase_to_use)}</strong></li>
-                <li>• Pague até <strong>{s.max_cashback_payment_percentage}%</strong> da compra com cashback</li>
-                <li>• Saldo válido por <strong>{s.balance_validity_days} dias</strong></li>
-                {s.release_days > 0 && <li>• Cashback libera em <strong>{s.release_days} dias</strong></li>}
-              </ul>
-            </div>
-          )}
+      {s && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <h3 className="font-bold text-gray-900 mb-3 text-sm">Regras do programa</h3>
+            <ul className="space-y-1.5 text-sm text-gray-600">
+              <li>• <strong>{s.cashback_percentage}%</strong> de cashback nas compras</li>
+              <li>• Compra mínima para usar: <strong>{formatCurrency(s.min_purchase_to_use)}</strong></li>
+              <li>• Pague até <strong>{s.max_cashback_payment_percentage}%</strong> da compra com cashback</li>
+              <li>• Saldo válido por <strong>{s.balance_validity_days} dias</strong></li>
+              {s.release_days > 0 && <li>• Cashback libera em <strong>{s.release_days} dias</strong></li>}
+            </ul>
+          </div>
 
           <div className="flex gap-3">
             <Link to="/regras" className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 text-center hover:bg-gray-50 flex items-center justify-center gap-2">
