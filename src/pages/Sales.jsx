@@ -141,10 +141,10 @@ export default function Sales() {
         cashback_used: 0,
         payment_method: form.payment_method,
         sale_date: form.sale_date,
-        category_id: selectedCategory || '',
+        category_id: selectedCategory || null,
         status: 'concluida',
         cashback_generated: cbAmount > 0,
-        operator_id: operator?.id || '',
+        operator_id: operator?.id || null,
         notes: form.notes,
         is_demo: false,
       });
@@ -163,7 +163,7 @@ export default function Sales() {
           transaction_date: form.sale_date,
           available_date: cashbackCalc.availDate,
           expiry_date: cashbackCalc.expiryDate,
-          operator_id: operator?.id || '',
+          operator_id: operator?.id || null,
           is_demo: false,
         });
         txId = tx.id;
