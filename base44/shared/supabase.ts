@@ -143,6 +143,7 @@ const COLUMN_MIGRATIONS = [
   'ALTER TABLE sales ADD COLUMN IF NOT EXISTS legacy_id text;',
   'ALTER TABLE cashback_transactions ADD COLUMN IF NOT EXISTS legacy_id text;',
   'ALTER TABLE cashback_redemptions ADD COLUMN IF NOT EXISTS legacy_id text;',
+  'ALTER TABLE internal_accounts ADD COLUMN IF NOT EXISTS legacy_id text;',
 ];
 
 // Cria todas as tabelas (CREATE TABLE IF NOT EXISTS) e aplica migrações de coluna.

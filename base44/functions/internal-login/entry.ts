@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import { verifyPassword } from "../../shared/passwordUtils.ts";
+import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgUpdate } from "../../shared/supabase.ts";
 
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
@@ -24,9 +25,13 @@ export default async function (req: Request): Promise<Response> {
       );
     }
 
+    const conn = await getConnection(base44);
+    const ref = await getProjectRef(conn.accessToken);
+    const key = await getServiceRoleKey(conn.accessToken, ref);
+
     const needle = String(username).toLowerCase().trim();
-    const byUsername = await base44.entities.InternalAccount.filter({ username: needle });
-    const byEmail = await base44.entities.InternalAccount.filter({ email: needle });
+    const byUsername = await pgList(key, ref, "internal_accounts", { filters: { username: needle }, limit: 1 });
+    const byEmail = await pgList(key, ref, "internal_accounts", { filters: { email: needle }, limit: 1 });
     const account =
       (byUsername && byUsername[0]) || (byEmail && byEmail[0]) || null;
 
@@ -64,7 +69,7 @@ export default async function (req: Request): Promise<Response> {
       account.password_salt
     );
     if (!ok) {
-      const attempts = (account.failed_attempts || 0) + 1;
+      const attempts = Number(account.failed_attempts || 0) + 1;
       const updates: Record<string, unknown> = { failed_attempts: attempts };
       if (attempts >= MAX_ATTEMPTS) {
         updates.locked_until = new Date(
@@ -72,14 +77,14 @@ export default async function (req: Request): Promise<Response> {
         ).toISOString();
         updates.failed_attempts = 0;
       }
-      await base44.entities.InternalAccount.update(account.id, updates);
+      await pgUpdate(key, ref, "internal_accounts", account.id, updates);
       return Response.json(
         { success: false, error: "Usuário ou senha inválidos." },
         { status: 401 }
       );
     }
 
-    await base44.entities.InternalAccount.update(account.id, {
+    await pgUpdate(key, ref, "internal_accounts", account.id, {
       failed_attempts: 0,
       locked_until: null,
       last_login_at: new Date().toISOString(),

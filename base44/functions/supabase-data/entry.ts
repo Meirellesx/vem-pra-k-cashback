@@ -6,7 +6,7 @@ import {
 
 // Tabelas permitidas para CRUD genérico via esta função.
 // (Expande conforme cada entidade é migrada para o Supabase.)
-const CRUD_TABLES = new Set(['customers', 'sales', 'cashback_transactions', 'cashback_redemptions']);
+const CRUD_TABLES = new Set(['customers', 'sales', 'cashback_transactions', 'cashback_redemptions', 'internal_accounts']);
 
 export default async function(req) {
   try {
@@ -21,7 +21,7 @@ export default async function(req) {
     const ref = await getProjectRef(conn.accessToken);
 
     // ===== Operações administrativas (setup / saúde / migração) =====
-    if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateCustomers' || op === 'resetCustomerBalances') {
+    if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateCustomers' || op === 'migrateInternalAccounts' || op === 'resetCustomerBalances') {
       if (user.role !== 'admin') {
         return Response.json({ error: 'Forbidden — apenas administradores.' }, { status: 403 });
       }
@@ -38,6 +38,30 @@ export default async function(req) {
         await runSql(conn.accessToken, ref,
           'UPDATE customers SET available_balance = 0, pending_balance = 0, total_cashback_earned = 0, total_cashback_used = 0;');
         return Response.json({ success: true });
+      }
+      if (op === 'migrateInternalAccounts') {
+        const all = await base44.asServiceRole.entities.InternalAccount.list('-created_date', 1000);
+        const key = await getServiceRoleKey(conn.accessToken, ref);
+        let inserted = 0;
+        let skipped = 0;
+        for (const a of all) {
+          const existing = await pgList(key, ref, 'internal_accounts', { filters: { legacy_id: a.id }, limit: 1 });
+          if (existing && existing.length > 0) { skipped++; continue; }
+          await pgInsert(key, ref, 'internal_accounts', {
+            legacy_id: a.id,
+            username: a.username, full_name: a.full_name, email: a.email || '',
+            phone: a.phone || '', cpf: a.cpf || '', job_title: a.job_title || '',
+            role: a.role || 'cashier',
+            password_hash: a.password_hash, password_salt: a.password_salt,
+            status: a.status || 'active', linked_customer_id: a.linked_customer_id || '',
+            last_login_at: a.last_login_at || null,
+            failed_attempts: a.failed_attempts || 0, locked_until: a.locked_until || null,
+            notes: a.notes || '',
+            created_date: a.created_date, created_by_id: a.created_by_id || '',
+          });
+          inserted++;
+        }
+        return Response.json({ success: true, inserted, skipped, total: all.length });
       }
       // migrateCustomers: copia clientes do Base44 para o Supabase (idempotente por legacy_id).
       const all = await base44.asServiceRole.entities.Customer.list('-created_date', 1000);

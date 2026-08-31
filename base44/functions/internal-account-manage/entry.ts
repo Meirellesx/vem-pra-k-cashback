@@ -1,6 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import { hashPassword } from "../../shared/passwordUtils.ts";
-import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate } from "../../shared/supabase.ts";
+import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, pgGet } from "../../shared/supabase.ts";
 
 const STAFF_ROLES = ["admin", "manager", "cashier", "viewer", "operador"];
 
@@ -33,6 +33,10 @@ export default async function (req: Request): Promise<Response> {
         { status: 403 }
       );
     }
+
+    const conn = await getConnection(base44);
+    const ref = await getProjectRef(conn.accessToken);
+    const key = await getServiceRoleKey(conn.accessToken, ref);
 
     const body = await req.json();
     const action = body.action;
@@ -73,7 +77,7 @@ export default async function (req: Request): Promise<Response> {
       }
       const username = String(email).toLowerCase().trim();
 
-      const existing = await base44.entities.InternalAccount.filter({ username });
+      const existing = await pgList(key, ref, "internal_accounts", { filters: { username }, limit: 1 });
       if (existing && existing.length > 0) {
         return Response.json(
           { success: false, error: "Já existe um login interno com este e-mail." },
@@ -84,9 +88,6 @@ export default async function (req: Request): Promise<Response> {
       const { hash, salt } = await hashPassword(password);
 
       // Vincula/cria o perfil de Cliente de cashback do funcionário no Supabase (bloqueio de autocompra).
-      const conn = await getConnection(base44);
-      const ref = await getProjectRef(conn.accessToken);
-      const key = await getServiceRoleKey(conn.accessToken, ref);
       let customer: any = null;
       const byCpf = cpf ? await pgList(key, ref, "customers", { filters: { cpf }, limit: 1 }) : [];
       const byEmail = await pgList(key, ref, "customers", { filters: { email: username }, limit: 1 });
@@ -111,7 +112,7 @@ export default async function (req: Request): Promise<Response> {
         await pgUpdate(key, ref, "customers", customer.id, { cpf, identifier_code: cpfToCode(cpf) }).catch(() => {});
       }
 
-      const account = await base44.entities.InternalAccount.create({
+      const account = await pgInsert(key, ref, "internal_accounts", {
         username,
         full_name,
         email: username,
@@ -124,6 +125,7 @@ export default async function (req: Request): Promise<Response> {
         status: "active",
         linked_customer_id: customer.id,
         failed_attempts: 0,
+        created_by_id: user.id,
       });
 
       await audit(
@@ -138,18 +140,15 @@ export default async function (req: Request): Promise<Response> {
     if (action === "update") {
       const { id, full_name, phone, job_title } = body;
       if (!id) return Response.json({ success: false, error: "ID obrigatório." }, { status: 400 });
-      const before = await base44.entities.InternalAccount.get(id);
+      const before = await pgGet(key, ref, "internal_accounts", id);
       const updates: Record<string, unknown> = {};
       if (full_name !== undefined) updates.full_name = full_name;
       if (phone !== undefined) updates.phone = phone || "";
       if (job_title !== undefined) updates.job_title = job_title || "";
       if (full_name && before.linked_customer_id) {
-        const conn = await getConnection(base44);
-        const ref = await getProjectRef(conn.accessToken);
-        const key = await getServiceRoleKey(conn.accessToken, ref);
         await pgUpdate(key, ref, "customers", before.linked_customer_id, { name: full_name }).catch(() => {});
       }
-      await base44.entities.InternalAccount.update(id, updates);
+      await pgUpdate(key, ref, "internal_accounts", id, updates);
       await audit(
         "update_internal_account",
         id,
@@ -166,9 +165,9 @@ export default async function (req: Request): Promise<Response> {
           { status: 400 }
         );
       }
-      const before = await base44.entities.InternalAccount.get(id);
+      const before = await pgGet(key, ref, "internal_accounts", id);
       const { hash, salt } = await hashPassword(newPassword);
-      await base44.entities.InternalAccount.update(id, {
+      await pgUpdate(key, ref, "internal_accounts", id, {
         password_hash: hash,
         password_salt: salt,
         failed_attempts: 0,
@@ -191,8 +190,8 @@ export default async function (req: Request): Promise<Response> {
           { status: 400 }
         );
       }
-      const before = await base44.entities.InternalAccount.get(id);
-      await base44.entities.InternalAccount.update(id, { status: "blocked" });
+      const before = await pgGet(key, ref, "internal_accounts", id);
+      await pgUpdate(key, ref, "internal_accounts", id, { status: "blocked" });
       await audit(
         "block_internal_account",
         id,
@@ -205,8 +204,8 @@ export default async function (req: Request): Promise<Response> {
     if (action === "reactivate") {
       const { id } = body;
       if (!id) return Response.json({ success: false, error: "ID obrigatório." }, { status: 400 });
-      const before = await base44.entities.InternalAccount.get(id);
-      await base44.entities.InternalAccount.update(id, {
+      const before = await pgGet(key, ref, "internal_accounts", id);
+      await pgUpdate(key, ref, "internal_accounts", id, {
         status: "active",
         failed_attempts: 0,
         locked_until: null,
@@ -233,8 +232,8 @@ export default async function (req: Request): Promise<Response> {
           { status: 400 }
         );
       }
-      const before = await base44.entities.InternalAccount.get(id);
-      await base44.entities.InternalAccount.update(id, { role });
+      const before = await pgGet(key, ref, "internal_accounts", id);
+      await pgUpdate(key, ref, "internal_accounts", id, { role });
       await audit(
         "change_internal_role",
         id,

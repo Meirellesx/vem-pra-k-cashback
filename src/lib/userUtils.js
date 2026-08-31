@@ -1,6 +1,7 @@
 import { base44 } from '@/api/base44Client';
 import { getOperator } from '@/lib/internalAuth';
 import { STAFF_ROLES } from './constants';
+import InternalAccount from '@/lib/internalAccountsDb';
 
 const STAFF_ROLE_KEYS = ['admin', 'manager', 'cashier', 'viewer', 'operador'];
 
@@ -8,9 +9,9 @@ export const isAdmin = (user) => user?.role === 'admin';
 
 export const getUserStatus = (account) => account?.status || 'active';
 
-// Lista os funcionários a partir das contas do login interno.
+// Lista os funcionários a partir das contas do login interno (Supabase).
 export const getStaffUsers = async () => {
-  const accounts = await base44.entities.InternalAccount.list('-created_date', 500);
+  const accounts = await InternalAccount.list('-created_date', 500);
   return (accounts || [])
     .filter((a) => STAFF_ROLE_KEYS.includes(a.role))
     .map((a) => ({
@@ -136,6 +137,6 @@ export const resetUserPassword = async (target, newPassword, currentUser) => {
 };
 
 export const countActiveAdmins = async () => {
-  const accounts = await base44.entities.InternalAccount.filter({ role: 'admin', status: 'active' });
+  const accounts = await InternalAccount.filter({ role: 'admin', status: 'active' });
   return (accounts || []).length;
 };
