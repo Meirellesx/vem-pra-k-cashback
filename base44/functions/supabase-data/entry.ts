@@ -33,6 +33,12 @@ export default async function(req) {
         const tables = await listTables(conn.accessToken, ref);
         return Response.json({ success: true, project_ref: ref, tables });
       }
+      if (op === 'resetCustomerBalances') {
+        // Zera saldos/totalizadores de todos os clientes (dados de teste).
+        await runSql(conn.accessToken, ref,
+          'UPDATE customers SET available_balance = 0, pending_balance = 0, total_cashback_earned = 0, total_cashback_used = 0;');
+        return Response.json({ success: true });
+      }
       // migrateCustomers: copia clientes do Base44 para o Supabase (idempotente por legacy_id).
       const all = await base44.asServiceRole.entities.Customer.list('-created_date', 1000);
       const key = await getServiceRoleKey(conn.accessToken, ref);
@@ -57,13 +63,6 @@ export default async function(req) {
         inserted++;
       }
       return Response.json({ success: true, inserted, skipped, total: all.length });
-    }
-
-    if (op === 'resetCustomerBalances') {
-      // Zera saldos/totalizadores de todos os clientes (dados de teste).
-      await runSql(conn.accessToken, ref,
-        'UPDATE customers SET available_balance = 0, pending_balance = 0, total_cashback_earned = 0, total_cashback_used = 0;');
-      return Response.json({ success: true });
     }
 
     // ===== CRUD genérico (autenticado, tabelas permitidas) =====
