@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Mail, Phone, Briefcase, User, ShieldCheck, Save, KeyRound } from 'lucide-react';
 import { STAFF_ROLES } from '@/lib/constants';
-import DrawerSelect from '@/components/mobile/DrawerSelect';
 
 export default function UserFormModal({ open, editingUser, onSave, onCancel, saving }) {
   const isEdit = !!editingUser;
@@ -187,13 +186,28 @@ export default function UserFormModal({ open, editingUser, onSave, onCancel, sav
                 <span className="text-xs text-gray-400 ml-auto">Use "Alterar Perfil" na lista para mudar</span>
               </div>
             ) : (
-              <DrawerSelect
-                value={form.role}
-                onChange={(v) => setForm({ ...form, role: v })}
-                label="Perfil de acesso"
-                className="w-full px-3 py-2.5 text-sm min-w-0"
-                options={staffRoleOptions.map(r => ({ value: r, label: STAFF_ROLES[r] }))}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                {staffRoleOptions.map((r) => {
+                  const active = form.role === r;
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setForm({ ...form, role: r })}
+                      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                        active
+                          ? 'border-orange-500 bg-orange-50 text-orange-700 ring-2 ring-orange-500/30'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${active ? 'border-orange-500' : 'border-gray-300'}`}>
+                        {active && <span className="w-2 h-2 rounded-full bg-orange-500" />}
+                      </span>
+                      {STAFF_ROLES[r]}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
 
