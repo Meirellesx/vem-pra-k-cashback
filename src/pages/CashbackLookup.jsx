@@ -11,6 +11,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 
 export default function CashbackLookup() {
   const { user } = useAuth();
+  const operator = getOperator(user);
   const [settings, setSettings] = useState(null);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -34,7 +35,7 @@ export default function CashbackLookup() {
   const loadSettings = async () => {
     const s = await getSettings();
     setSettings(s);
-    setMyCustomer(await getMyCustomer(user));
+    setMyCustomer(await getMyCustomer(operator));
   };
 
   const handleSearch = async (q) => {
@@ -54,7 +55,7 @@ export default function CashbackLookup() {
 
   const selectCustomer = async (c) => {
     // Regra: o funcionário não pode resgatar cashback do próprio cliente.
-    if (isOwnCustomer(user, c, myCustomer)) {
+    if (isOwnCustomer(operator, c, myCustomer)) {
       setError('⚠️ Você não pode consultar/resgatar cashback do seu próprio cliente. Peça a outro operador.');
       setSearchResults([]);
       return;
@@ -71,7 +72,7 @@ export default function CashbackLookup() {
     setLoading(false);
   };
 
-  const availableTransactions = transactions.filter(t => t.status === 'disponivel').sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date));
+  const availableTransactions = transactions.filter(t => t.status === 'disponivel' && ((Number(t.amount) || 0) - (Number(t.used_amount) || 0)) > 0).sort((a, b) => new Date(a.transaction_date) - new Date(b.transaction_date));
 
   const maxRedeemable = () => {
     if (!settings || !redeemSaleTotal) return 0;
@@ -132,11 +133,15 @@ export default function CashbackLookup() {
 
     // Determine which transactions will be consumed (FIFO) for the optimistic update
     let previewRemaining = amount;
-    const optimisticUsedIds = [];
+    const optimisticUpdates = [];
     for (const tx of availableTransactions) {
       if (previewRemaining <= 0) break;
-      optimisticUsedIds.push(tx.id);
-      previewRemaining -= Math.min(previewRemaining, tx.amount);
+      const avail = (Number(tx.amount) || 0) - (Number(tx.used_amount) || 0);
+      if (avail <= 0) continue;
+      const consume = Math.min(previewRemaining, avail);
+      const newUsed = (Number(tx.used_amount) || 0) + consume;
+      optimisticUpdates.push({ id: tx.id, newUsed, fullyUsed: newUsed >= (Number(tx.amount) || 0) });
+      previewRemaining -= consume;
     }
 
     // Optimistic UI update — reflect the redemption immediately, ahead of the network
@@ -146,8 +151,12 @@ export default function CashbackLookup() {
       total_cashback_used: (prev.total_cashback_used || 0) + amount,
     }));
     setTransactions(prev => {
-      const usedSet = new Set(optimisticUsedIds);
-      const marked = prev.map(t => (usedSet.has(t.id) ? { ...t, status: 'usado' } : t));
+      const updateMap = new Map(optimisticUpdates.map(u => [u.id, u]));
+      const marked = prev.map(t => {
+        const u = updateMap.get(t.id);
+        if (!u) return t;
+        return { ...t, used_amount: u.newUsed, status: u.fullyUsed ? 'usado' : t.status };
+      });
       const usageTxLocal = {
         id: `optimistic-${Date.now()}`,
         customer_id: customer.id,
@@ -167,13 +176,20 @@ export default function CashbackLookup() {
       let remaining = amount;
       const usedTxIds = [];
 
-      // Use oldest transactions first (FIFO)
+      // Use oldest transactions first (FIFO), consuming partially via used_amount
       for (const tx of availableTransactions) {
         if (remaining <= 0) break;
-        const useFromThis = Math.min(remaining, tx.amount);
-        await CashbackTransaction.update(tx.id, { status: 'usado' });
+        const avail = (Number(tx.amount) || 0) - (Number(tx.used_amount) || 0);
+        if (avail <= 0) continue;
+        const consume = Math.min(remaining, avail);
+        const newUsed = (Number(tx.used_amount) || 0) + consume;
+        const fullyUsed = newUsed >= (Number(tx.amount) || 0);
+        await CashbackTransaction.update(tx.id, {
+          used_amount: newUsed,
+          ...(fullyUsed ? { status: 'usado' } : {}),
+        });
         usedTxIds.push(tx.id);
-        remaining -= useFromThis;
+        remaining -= consume;
       }
 
       // Create redemption usage transaction

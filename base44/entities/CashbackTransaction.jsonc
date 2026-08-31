@@ -46,6 +46,11 @@
       ],
       "default": "pendente"
     },
+    "used_amount": {
+      "type": "number",
+      "title": "Valor j\u00e1 consumido (resgate parcial)",
+      "default": 0
+    },
     "transaction_date": {
       "type": "string",
       "format": "date",

@@ -85,6 +85,7 @@ export const TABLES = {
   cashback_transactions: [
     'customer_id text', 'customer_name text', 'sale_id text', 'sale_number text',
     'amount numeric', 'type text', 'status text default \'pendente\'',
+    'used_amount numeric default 0',
     'transaction_date date', 'available_date date', 'expiry_date date',
     'reference_transaction_id text', 'operator_id text', 'justification text',
     'is_demo boolean default false', 'notes text', 'legacy_id text',
@@ -142,6 +143,7 @@ const COLUMN_MIGRATIONS = [
   'ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active boolean default true;',
   'ALTER TABLE sales ADD COLUMN IF NOT EXISTS legacy_id text;',
   'ALTER TABLE cashback_transactions ADD COLUMN IF NOT EXISTS legacy_id text;',
+  'ALTER TABLE cashback_transactions ADD COLUMN IF NOT EXISTS used_amount numeric default 0;',
   'ALTER TABLE cashback_redemptions ADD COLUMN IF NOT EXISTS legacy_id text;',
   'ALTER TABLE internal_accounts ADD COLUMN IF NOT EXISTS legacy_id text;',
   'ALTER TABLE cashback_settings ADD COLUMN IF NOT EXISTS legacy_id text;',

@@ -1,0 +1,44 @@
+{
+  "description": "Libera cashback pendente vencido e expira saldo dispon\u00edvel vencido, debitando o saldo do cliente. Executa diariamente \u00e0s 03:00.",
+  "name": "Cashback Lifecycle",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 3 * * *",
+      "one_time_date": null,
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "cashback_lifecycle",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_lifecycle": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "cashback-lifecycle"
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Ciclo de vida do cashback",
+            "description": "Libera\u00e7\u00e3o e expira\u00e7\u00e3o di\u00e1ria \u00e0s 03:00"
+          }
+        }
+      }
+    ]
+  }
+}
