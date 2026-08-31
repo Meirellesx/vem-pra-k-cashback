@@ -15,6 +15,7 @@ import {
   reactivateUser,
   changeUserRole,
   resetUserPassword,
+  syncSelfAccount,
 } from '@/lib/userUtils';
 import { getOperator } from '@/lib/internalAuth';
 import { STAFF_ROLES, USER_STATUS } from '@/lib/constants';
@@ -46,9 +47,13 @@ export default function Users() {
   const [resetTarget, setResetTarget] = useState(null);
   const [resetSaving, setResetSaving] = useState(false);
 
+  const [expandedId, setExpandedId] = useState(null);
+
   const loadData = async () => {
     setLoading(true);
     try {
+      // Garante que o admin logado tenha registro interno (aparece na lista).
+      await syncSelfAccount().catch(() => {});
       const [staff, logs] = await Promise.all([
         getStaffUsers(),
         AuditLog.filter({ entity_type: 'InternalAccount' }, '-created_date', 15).catch(() => []),
@@ -294,87 +299,102 @@ export default function Users() {
                   <th className="text-left px-4 py-3 font-semibold">Status</th>
                   <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Criado em</th>
                   <th className="text-left px-4 py-3 font-semibold whitespace-nowrap">Último acesso</th>
-                  <th className="text-right px-4 py-3 font-semibold">Ações</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map(u => {
                   const status = getUserStatus(u);
                   const isBlocked = status === 'blocked';
-                  const isSelf = u.id === operator?.id;
+                  const isSelf =
+                    u.id === operator?.id ||
+                    (operator?.email && u.email && operator.email.toLowerCase() === u.email.toLowerCase());
+                  const isOpen = expandedId === u.id;
                   return (
-                    <tr
-                      key={u.id}
-                      className={`hover:bg-gray-50 transition-colors ${isBlocked ? 'bg-red-50/40' : ''}`}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 ${
-                            isBlocked ? 'bg-gray-300 text-gray-600' : 'bg-orange-500 text-white'
-                          }`}>
-                            {(u.full_name || u.email || '?').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 truncate flex items-center gap-1.5">
-                              {u.full_name || u.email}
-                              {isSelf && <span className="text-xs text-orange-500 font-medium">(você)</span>}
-                              {isBlocked && <Lock className="w-3 h-3 text-red-500 flex-shrink-0" />}
+                    <React.Fragment key={u.id}>
+                      <tr
+                        onClick={() => setExpandedId(isOpen ? null : u.id)}
+                        className={`cursor-pointer hover:bg-gray-50 transition-colors ${isBlocked ? 'bg-red-50/40' : ''} ${isOpen ? 'bg-gray-50' : ''}`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 ${
+                              isBlocked ? 'bg-gray-300 text-gray-600' : 'bg-orange-500 text-white'
+                            }`}>
+                              {(u.full_name || u.email || '?').charAt(0).toUpperCase()}
                             </div>
-                            <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-gray-900 truncate flex items-center gap-1.5">
+                                {u.full_name || u.email}
+                                {isSelf && <span className="text-xs text-orange-500 font-medium">(você)</span>}
+                                {isBlocked && <Lock className="w-3 h-3 text-red-500 flex-shrink-0" />}
+                              </div>
+                              <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{u.phone || '—'}</td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{u.job_title || '—'}</td>
-                      <td className="px-4 py-3">
-                        <RoleMenu
-                          user={u}
-                          operatorId={operator?.id}
-                          onRoleChange={(newRole) => openRoleChange(u, newRole)}
-                        />
-                      </td>
-                      <td className="px-4 py-3">{statusBadge(status)}</td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(u.created_date)}</td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                        {u.last_login_at ? formatDateTime(u.last_login_at) : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditingUser(u); setShowForm(true); }}
-                            title="Editar"
-                            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-all"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => openReset(u)}
-                            title="Redefinir senha"
-                            className="p-1.5 rounded-lg text-gray-500 hover:bg-blue-100 hover:text-blue-600 transition-all"
-                          >
-                            <KeyRound className="w-4 h-4" />
-                          </button>
-                          {isBlocked ? (
-                            <button
-                              onClick={() => openUnblock(u)}
-                              title="Reativar"
-                              className="p-1.5 rounded-lg text-green-600 hover:bg-green-100 transition-all"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => openBlock(u)}
-                              disabled={isSelf}
-                              title={isSelf ? 'Não é possível bloquear a si mesmo' : 'Bloquear'}
-                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-100 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                              <Ban className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{u.phone || '—'}</td>
+                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{u.job_title || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs font-medium text-gray-700">{STAFF_ROLES[u.role] || u.role}</span>
+                        </td>
+                        <td className="px-4 py-3">{statusBadge(status)}</td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{formatDate(u.created_date)}</td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                          {u.last_login_at ? formatDateTime(u.last_login_at) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform inline-block ${isOpen ? 'rotate-180' : ''}`} />
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="bg-gray-50/60">
+                          <td colSpan={8} className="px-4 py-4">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditingUser(u); setShowForm(true); }}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-all"
+                              >
+                                <Edit className="w-4 h-4" /> Editar
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openReset(u); }}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all"
+                              >
+                                <KeyRound className="w-4 h-4" /> Redefinir senha
+                              </button>
+                              <span onClick={(e) => e.stopPropagation()}>
+                                <RoleMenu
+                                  user={u}
+                                  operator={operator}
+                                  onRoleChange={(newRole) => openRoleChange(u, newRole)}
+                                />
+                              </span>
+                              {isBlocked ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); openUnblock(u); }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-all"
+                                >
+                                  <CheckCircle className="w-4 h-4" /> Reativar
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); openBlock(u); }}
+                                  disabled={isSelf}
+                                  title={isSelf ? 'Não é possível bloquear a si mesmo' : 'Bloquear'}
+                                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  <Ban className="w-4 h-4" /> {isSelf ? 'Bloquear (você)' : 'Bloquear'}
+                                </button>
+                              )}
+                              {isSelf && !isBlocked && (
+                                <span className="text-xs text-gray-400 italic">Não é possível bloquear a si mesmo</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -418,9 +438,11 @@ export default function Users() {
 }
 
 // Inline role dropdown component
-function RoleMenu({ user, operatorId, onRoleChange }) {
+function RoleMenu({ user, operator, onRoleChange }) {
   const [open, setOpen] = useState(false);
-  const isSelf = user.id === operatorId;
+  const isSelf =
+    user.id === operator?.id ||
+    (operator?.email && user.email && operator.email.toLowerCase() === user.email.toLowerCase());
   const roleOptions = ['admin', 'manager', 'cashier', 'viewer'];
 
   return (

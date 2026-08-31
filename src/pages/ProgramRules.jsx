@@ -7,7 +7,13 @@ export default function ProgramRules() {
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
-    import('@/lib/cashbackSettingsDb').then(m => m.default.list().then(d => { if (d.length > 0) setSettings(d[0]); }));
+    // Via função pública: funciona tanto para visitantes quanto para logados.
+    base44.functions.invoke('public-cashback-lookup', { op: 'settings' })
+      .then((res) => {
+        const d = res?.data ?? res;
+        if (d?.settings) setSettings(d.settings);
+      })
+      .catch(() => {});
   }, []);
 
   const rules = settings ? [

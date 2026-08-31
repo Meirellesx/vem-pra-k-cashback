@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { safeReturnTo } from '@/lib/authReturnTo';
 
@@ -127,6 +128,20 @@ export default function Login() {
               Criar minha conta
             </a>
           </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-center gap-4 text-xs">
+          <Link to="/cashback-lookup" className="text-orange-400 hover:text-orange-300 font-medium">
+            Consultar meu cashback
+          </Link>
+          <span className="text-gray-600">·</span>
+          <Link to="/regras" className="text-gray-400 hover:text-gray-300 font-medium">
+            Regras
+          </Link>
+          <span className="text-gray-600">·</span>
+          <Link to="/privacidade" className="text-gray-400 hover:text-gray-300 font-medium">
+            Privacidade
+          </Link>
         </div>
 
         <p className="text-center text-gray-600 text-xs mt-6">

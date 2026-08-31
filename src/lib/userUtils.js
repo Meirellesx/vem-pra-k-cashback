@@ -68,7 +68,10 @@ export const updateEmployee = async (target, data, currentUser) => {
 };
 
 export const blockUser = async (target, currentUser, justification) => {
-  if (target.id === currentUser.id) {
+  const isSelf =
+    target.id === currentUser.id ||
+    (target.email && currentUser.email && target.email.toLowerCase() === currentUser.email.toLowerCase());
+  if (isSelf) {
     throw new Error('Não é possível bloquear a si mesmo.');
   }
   if (target.role === 'admin') {
@@ -139,4 +142,11 @@ export const resetUserPassword = async (target, newPassword, currentUser) => {
 export const countActiveAdmins = async () => {
   const accounts = await InternalAccount.filter({ role: 'admin', status: 'active' });
   return (accounts || []).length;
+};
+
+// Garante que o administrador logado tenha um registro em internal_accounts
+// (idempotente). Faz o admin aparecer na lista de funcionários e ser contado.
+export const syncSelfAccount = async () => {
+  const res = await base44.functions.invoke('internal-account-manage', { action: 'syncSelf' });
+  return unwrap(res);
 };

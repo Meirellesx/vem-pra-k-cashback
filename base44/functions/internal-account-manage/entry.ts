@@ -243,6 +243,56 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: true });
     }
 
+    if (action === "syncSelf") {
+      // Garante que o administrador Base44 logado tenha um registro em
+      // internal_accounts, para que ele apareça na lista de funcionários e
+      // possa ser contado/gerenciado como admin. Idempotente.
+      const username = String(user.email || "").toLowerCase().trim();
+      if (!username) {
+        return Response.json(
+          { success: false, error: "E-mail do administrador não encontrado." },
+          { status: 400 }
+        );
+      }
+      const existing = await pgList(key, ref, "internal_accounts", { filters: { username }, limit: 1 });
+      if (existing && existing.length > 0) {
+        const acc = existing[0];
+        // O Base44 admin deve ter perfil admin no login interno — promove se divergir.
+        if (acc.role !== "admin") {
+          await pgUpdate(key, ref, "internal_accounts", acc.id, { role: "admin" });
+          await audit(
+            "sync_internal_account",
+            acc.id,
+            `Perfil administrador sincronizado: ${user.full_name || username} (${username}) — promovido de ${roleLabel(acc.role || "")} para Administrador`
+          );
+          return Response.json({ success: true, id: acc.id, created: false, promoted: true });
+        }
+        return Response.json({ success: true, id: acc.id, created: false, promoted: false });
+      }
+      const account = await pgInsert(key, ref, "internal_accounts", {
+        username,
+        full_name: user.full_name || username,
+        email: username,
+        phone: "",
+        cpf: "",
+        job_title: "Administrador",
+        role: "admin",
+        password_hash: "",
+        password_salt: "",
+        status: "active",
+        linked_customer_id: null,
+        failed_attempts: 0,
+        created_by_id: user.id,
+        notes: "Perfil sincronizado automaticamente (admin Base44).",
+      });
+      await audit(
+        "sync_internal_account",
+        account.id,
+        `Perfil administrador sincronizado: ${user.full_name || username} (${username})`
+      );
+      return Response.json({ success: true, id: account.id, created: true });
+    }
+
     return Response.json({ success: false, error: "Ação inválida." }, { status: 400 });
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 });

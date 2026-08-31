@@ -10,6 +10,7 @@ import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import Layout from '@/components/Layout';
 import HomeRedirect from '@/components/HomeRedirect';
+import PublicShell from '@/components/PublicShell';
 
 // Auth pages (lazy-loaded for faster initial webview load)
 const Login = lazy(() => import('@/pages/Login'));
@@ -33,6 +34,7 @@ const ProgramRules = lazy(() => import('@/pages/ProgramRules'));
 const Privacy = lazy(() => import('@/pages/Privacy'));
 const MeuCodigo = lazy(() => import('@/pages/MeuCodigo'));
 const InternalLogin = lazy(() => import('@/pages/InternalLogin'));
+const PublicCashbackLookup = lazy(() => import('@/pages/PublicCashbackLookup'));
 
 const FullScreenLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-[#0A0A0A]">
@@ -55,8 +57,9 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
+      // Visitante sem login: deixamos as rotas públicas (consulta de saldo, regras,
+      // privacidade, login) acessíveis. As rotas protegidas já redirecionam para
+      // /login via ProtectedRoute — não forçamos redirect global aqui.
     } else if (authError.type === 'user_blocked') {
       return (
         <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4">
@@ -83,6 +86,13 @@ const AuthenticatedApp = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
+        {/* Páginas públicas (visitante sem login): consulta de saldo, regras e privacidade */}
+        <Route element={<PublicShell />}>
+          <Route path="/cashback-lookup" element={<PublicCashbackLookup />} />
+          <Route path="/regras" element={<ProgramRules />} />
+          <Route path="/privacidade" element={<Privacy />} />
+        </Route>
+
         <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
           <Route path="/login-interno" element={<InternalLogin />} />
           <Route element={<Layout />}>
@@ -100,8 +110,6 @@ const AuthenticatedApp = () => {
             {/* Customer routes */}
             <Route path="/minha-area" element={<CustomerArea />} />
             <Route path="/extrato" element={<StatementPage />} />
-            <Route path="/regras" element={<ProgramRules />} />
-            <Route path="/privacidade" element={<Privacy />} />
             <Route path="/meu-codigo" element={<MeuCodigo />} />
           </Route>
         </Route>
