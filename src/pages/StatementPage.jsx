@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/cashbackUtils';
 import { FileText, Download, Filter, RefreshCw } from 'lucide-react';
@@ -19,7 +20,7 @@ export default function StatementPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const all = await base44.entities.Customer.list('-created_date', 500);
+    const all = await Customer.list('-created_date', 500);
     const mine = all.find(c => c.created_by_id === user?.id);
     if (mine) {
       setCustomer(mine);

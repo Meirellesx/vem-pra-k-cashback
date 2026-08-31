@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone } from '@/lib/cashbackUtils';
 import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle, RefreshCw } from 'lucide-react';
@@ -30,7 +31,7 @@ export default function CustomerArea() {
       if (s.length > 0) setSettings(s[0]);
 
       if (!user?.id) { setLoading(false); return; }
-      const all = await base44.entities.Customer.list('-created_date', 500);
+      const all = await Customer.list('-created_date', 500);
       const mine = all.find(c =>
         (c.email && user.email && c.email.toLowerCase() === user.email.toLowerCase()) ||
         c.created_by_id === user.id
@@ -54,7 +55,7 @@ export default function CustomerArea() {
     try {
       const { cpfToIdentifierCode } = await import('@/lib/cashbackUtils');
       const code = cpfToIdentifierCode(setupForm.cpf);
-      const created = await base44.entities.Customer.create({
+      const created = await Customer.create({
         name: setupForm.name,
         phone: setupForm.phone,
         identifier_code: code,

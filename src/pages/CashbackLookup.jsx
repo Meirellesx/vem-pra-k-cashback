@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getSettings, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, Wallet, Clock, CheckCircle, AlertTriangle, ShoppingCart } from 'lucide-react';
@@ -38,7 +39,7 @@ export default function CashbackLookup() {
     setSearch(q);
     if (q.length < 2) { setSearchResults([]); return; }
     const cleaned = q.replace(/\D/g, '');
-    const all = await base44.entities.Customer.list('-created_date', 100);
+    const all = await Customer.list('-created_date', 100);
     const results = all.filter(c => !c.is_demo && c.is_active !== false && (
       c.name?.toLowerCase().includes(q.toLowerCase()) ||
       c.email?.toLowerCase().includes(q.toLowerCase()) ||
@@ -203,7 +204,7 @@ export default function CashbackLookup() {
 
       // Update customer balance
       const newBalance = (customer.available_balance || 0) - amount;
-      await base44.entities.Customer.update(customer.id, {
+      await Customer.update(customer.id, {
         available_balance: Math.max(0, newBalance),
         total_cashback_used: (customer.total_cashback_used || 0) + amount,
       });
@@ -243,7 +244,7 @@ export default function CashbackLookup() {
       }
 
       // Refresh customer
-      const updated = await base44.entities.Customer.get(customer.id);
+      const updated = await Customer.get(customer.id);
       setCustomer(updated);
       await selectCustomer(updated);
     } catch (e) {

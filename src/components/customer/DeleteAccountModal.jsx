@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { createAuditLog } from '@/lib/cashbackUtils';
 import { AlertTriangle, X, Check, Loader2 } from 'lucide-react';
@@ -14,7 +15,7 @@ export default function DeleteAccountModal({ customer, onClose }) {
     setLoading(true);
     try {
       if (customer?.id) {
-        await base44.entities.Customer.update(customer.id, {
+        await Customer.update(customer.id, {
           is_active: false,
           notes: 'Solicitação de exclusão de conta pelo cliente',
         });

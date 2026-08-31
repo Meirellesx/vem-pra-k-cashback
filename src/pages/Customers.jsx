@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatPhone, cpfToIdentifierCode, createAuditLog, exportToCSV } from '@/lib/cashbackUtils';
 import { Search, Plus, Download, User, Phone, Wallet, Clock, Edit2, X, Check } from 'lucide-react';
@@ -86,7 +87,7 @@ export default function Customers() {
 
   const loadCustomers = async () => {
     setLoading(true);
-    const data = await base44.entities.Customer.list('-created_date', 200);
+    const data = await Customer.list('-created_date', 200);
     setCustomers(data.filter(c => c.is_active !== false));
     setLoading(false);
   };
@@ -101,7 +102,7 @@ export default function Customers() {
     try {
       if (editCustomer) {
         const code = cpfToIdentifierCode(form.cpf);
-        await base44.entities.Customer.update(editCustomer.id, { ...form, identifier_code: code });
+        await Customer.update(editCustomer.id, { ...form, identifier_code: code });
         await createAuditLog(user, 'update_customer', 'Customer', editCustomer.id, `Cliente atualizado: ${form.name}`, '', editCustomer, { ...form, identifier_code: code });
         if (form.email && form.email !== editCustomer.email) {
           try {
@@ -113,7 +114,7 @@ export default function Customers() {
         }
       } else {
         const code = cpfToIdentifierCode(form.cpf);
-        await base44.entities.Customer.create({ ...form, identifier_code: code, available_balance: 0, pending_balance: 0, total_cashback_earned: 0, total_cashback_used: 0, is_demo: false });
+        await Customer.create({ ...form, identifier_code: code, available_balance: 0, pending_balance: 0, total_cashback_earned: 0, total_cashback_used: 0, is_demo: false });
         await createAuditLog(user, 'create_customer', 'Customer', '', `Novo cliente cadastrado: ${form.name}`, '', null, form);
         if (form.email) {
           try {

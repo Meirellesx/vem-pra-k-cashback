@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
+import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getSettings, calculateCashback, getAvailableDate, getExpiryDate, createAuditLog, getMyCustomer, isOwnCustomer } from '@/lib/cashbackUtils';
 import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag } from 'lucide-react';
@@ -47,7 +48,7 @@ export default function Sales() {
     setSearch(q);
     if (q.length < 2) { setSearchResults([]); return; }
     const cleaned = q.replace(/\D/g, '');
-    const all = await base44.entities.Customer.list('-created_date', 100);
+    const all = await Customer.list('-created_date', 100);
     const results = all.filter(c => c.is_active !== false && !c.is_demo && (
       c.name?.toLowerCase().includes(q.toLowerCase()) ||
       (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned)) ||
@@ -78,7 +79,7 @@ export default function Sales() {
     try {
       const { cpfToIdentifierCode } = await import('@/lib/cashbackUtils');
       const code = cpfToIdentifierCode(newCustomerForm.cpf);
-      const created = await base44.entities.Customer.create({
+      const created = await Customer.create({
         ...newCustomerForm, identifier_code: code,
         available_balance: 0, pending_balance: 0,
         total_cashback_earned: 0, total_cashback_used: 0, is_demo: false,
@@ -168,7 +169,7 @@ export default function Sales() {
         const balanceUpdate = cashbackStatus === 'disponivel'
           ? { available_balance: (selectedCustomer.available_balance || 0) + cbAmount, total_cashback_earned: (selectedCustomer.total_cashback_earned || 0) + cbAmount }
           : { pending_balance: (selectedCustomer.pending_balance || 0) + cbAmount, total_cashback_earned: (selectedCustomer.total_cashback_earned || 0) + cbAmount };
-        await base44.entities.Customer.update(selectedCustomer.id, balanceUpdate);
+        await Customer.update(selectedCustomer.id, balanceUpdate);
 
         // Update sale with transaction id
         await base44.entities.Sale.update(sale.id, { cashback_transaction_id: txId });

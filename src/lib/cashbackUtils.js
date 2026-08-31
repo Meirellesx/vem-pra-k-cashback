@@ -1,4 +1,5 @@
 import { base44 } from '@/api/base44Client';
+import Customer from '@/lib/customersDb';
 
 export const getSettings = async () => {
   const settings = await base44.entities.CashbackSettings.list();
@@ -115,16 +116,16 @@ export const getMyCustomer = async (operator) => {
   if (!operator) return null;
   try {
     if (operator.linked_customer_id) {
-      const c = await base44.entities.Customer.get(operator.linked_customer_id).catch(() => null);
+      const c = await Customer.get(operator.linked_customer_id).catch(() => null);
       if (c) return c;
     }
     if (operator.email) {
-      const byEmail = await base44.entities.Customer.filter({ email: operator.email });
+      const byEmail = await Customer.filter({ email: operator.email });
       if (byEmail && byEmail.length > 0) return byEmail[0];
     }
     const cpfDigits = (operator.cpf || '').replace(/\D/g, '');
     if (cpfDigits) {
-      const byCpf = await base44.entities.Customer.filter({ identifier_code: cpfDigits });
+      const byCpf = await Customer.filter({ identifier_code: cpfDigits });
       if (byCpf && byCpf.length > 0) return byCpf[0];
     }
     return null;

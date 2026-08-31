@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate } from '@/lib/cashbackUtils';
 import { Users, ShoppingCart, TrendingUp, Wallet, Clock, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
@@ -39,7 +40,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const [customers, sales, transactions] = await Promise.all([
-        base44.entities.Customer.filter({ is_demo: false }),
+        Customer.filter({ is_demo: false }),
         base44.entities.Sale.filter({ is_demo: false }),
         base44.entities.CashbackTransaction.filter({ is_demo: false }),
       ]);

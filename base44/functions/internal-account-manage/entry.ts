@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import { hashPassword } from "../../shared/passwordUtils.ts";
+import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate } from "../../shared/supabase.ts";
 
 const STAFF_ROLES = ["admin", "manager", "cashier", "viewer", "operador"];
 
@@ -82,13 +83,16 @@ export default async function (req: Request): Promise<Response> {
 
       const { hash, salt } = await hashPassword(password);
 
-      // Vincula/cria o perfil de Cliente de cashback do funcionário (bloqueio de autocompra)
+      // Vincula/cria o perfil de Cliente de cashback do funcionário no Supabase (bloqueio de autocompra).
+      const conn = await getConnection(base44);
+      const ref = await getProjectRef(conn.accessToken);
+      const key = await getServiceRoleKey(conn.accessToken, ref);
       let customer: any = null;
-      const byCpf = cpf ? await base44.entities.Customer.filter({ cpf }) : [];
-      const byEmail = await base44.entities.Customer.filter({ email: username });
+      const byCpf = cpf ? await pgList(key, ref, "customers", { filters: { cpf }, limit: 1 }) : [];
+      const byEmail = await pgList(key, ref, "customers", { filters: { email: username }, limit: 1 });
       customer = (byCpf && byCpf[0]) || (byEmail && byEmail[0]) || null;
       if (!customer) {
-        customer = await base44.entities.Customer.create({
+        customer = await pgInsert(key, ref, "customers", {
           name: full_name,
           phone: phone || "",
           email: username,
@@ -101,11 +105,10 @@ export default async function (req: Request): Promise<Response> {
           is_demo: false,
           is_active: true,
           notes: "Cliente criado automaticamente no cadastro de funcionário (login interno).",
+          created_by_id: user.id,
         });
       } else if (!customer.cpf && cpf) {
-        await base44.entities.Customer
-          .update(customer.id, { cpf, identifier_code: cpfToCode(cpf) })
-          .catch(() => {});
+        await pgUpdate(key, ref, "customers", customer.id, { cpf, identifier_code: cpfToCode(cpf) }).catch(() => {});
       }
 
       const account = await base44.entities.InternalAccount.create({
@@ -141,9 +144,10 @@ export default async function (req: Request): Promise<Response> {
       if (phone !== undefined) updates.phone = phone || "";
       if (job_title !== undefined) updates.job_title = job_title || "";
       if (full_name && before.linked_customer_id) {
-        await base44.entities.Customer
-          .update(before.linked_customer_id, { name: full_name })
-          .catch(() => {});
+        const conn = await getConnection(base44);
+        const ref = await getProjectRef(conn.accessToken);
+        const key = await getServiceRoleKey(conn.accessToken, ref);
+        await pgUpdate(key, ref, "customers", before.linked_customer_id, { name: full_name }).catch(() => {});
       }
       await base44.entities.InternalAccount.update(id, updates);
       await audit(
