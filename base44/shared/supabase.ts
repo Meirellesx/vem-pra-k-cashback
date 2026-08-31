@@ -4,8 +4,10 @@
 const API_BASE = 'https://api.supabase.com/v1';
 const PROJECT_NAME = 'Cashback';
 
-// Cache do project ref entre invocações (o processo sobrevive por um tempo).
+// Caches entre invocações (o processo sobrevive por um tempo).
 let cachedRef = null;
+let cachedKey = null;
+let cachedKeyRef = null;
 
 // Obtém a conexão OAuth do conector Supabase (token de acesso).
 export async function getConnection(base44) {
@@ -65,74 +67,85 @@ const COMMON = [
 export const TABLES = {
   customers: [
     'name text', 'phone text', 'email text', 'cpf text', 'identifier_code text',
+    'legacy_id text',
     'accepts_promotions boolean default false',
     'available_balance numeric default 0', 'pending_balance numeric default 0',
     'total_cashback_earned numeric default 0', 'total_cashback_used numeric default 0',
     'is_demo boolean default false', 'is_active boolean default true', 'notes text',
   ].join(', '),
   sales: [
-    'sale_number text', 'customer_id uuid', 'customer_name text',
+    'sale_number text', 'customer_id text', 'customer_name text',
     'total_amount numeric', 'eligible_amount numeric', 'cashback_amount numeric',
     'cashback_used numeric default 0', 'payment_method text', 'sale_date date',
-    'category_id uuid', 'status text default \'concluida\'',
-    'cashback_generated boolean default false', 'cashback_transaction_id uuid',
+    'category_id text', 'status text default \'concluida\'',
+    'cashback_generated boolean default false', 'cashback_transaction_id text',
     'operator_id text', 'cashier_id text', 'cancellation_reason text',
-    'is_demo boolean default false', 'notes text',
+    'is_demo boolean default false', 'notes text', 'legacy_id text',
   ].join(', '),
   cashback_transactions: [
-    'customer_id uuid', 'customer_name text', 'sale_id uuid', 'sale_number text',
+    'customer_id text', 'customer_name text', 'sale_id text', 'sale_number text',
     'amount numeric', 'type text', 'status text default \'pendente\'',
     'transaction_date date', 'available_date date', 'expiry_date date',
     'reference_transaction_id text', 'operator_id text', 'justification text',
-    'is_demo boolean default false', 'notes text',
+    'is_demo boolean default false', 'notes text', 'legacy_id text',
   ].join(', '),
   cashback_redemptions: [
-    'customer_id uuid', 'customer_name text', 'sale_id uuid', 'sale_number text',
+    'customer_id text', 'customer_name text', 'sale_id text', 'sale_number text',
     'amount_redeemed numeric', 'sale_total numeric', 'redemption_date date',
     'operator_id text', 'status text default \'ativo\'', 'cancellation_reason text',
-    'transactions_used jsonb', 'is_demo boolean default false',
+    'transactions_used jsonb', 'is_demo boolean default false', 'legacy_id text',
   ].join(', '),
   cashback_settings: [
     'cashback_percentage numeric default 5', 'min_purchase_to_use numeric default 50',
     'max_cashback_payment_percentage numeric default 50', 'release_days numeric default 0',
     'balance_validity_days numeric default 365', 'is_active boolean default true',
     'program_name text default \'Vem Pra K Cashback\'', 'terms_text text',
-    'privacy_text text', 'updated_by text',
+    'privacy_text text', 'updated_by text', 'legacy_id text',
   ].join(', '),
   product_categories: [
     'name text', 'generates_cashback boolean default true',
     'can_use_cashback boolean default true', 'cashback_percentage_override numeric',
-    'description text', 'is_active boolean default true',
+    'description text', 'is_active boolean default true', 'legacy_id text',
   ].join(', '),
   audit_logs: [
     'user_id text', 'user_name text', 'user_role text', 'action text',
     'entity_type text', 'entity_id text', 'description text', 'justification text',
     'before_data text', 'after_data text', 'ip_address text', 'is_demo boolean default false',
+    'legacy_id text',
   ].join(', '),
   notifications: [
-    'customer_id uuid', 'customer_name text', 'title text', 'message text',
+    'customer_id text', 'customer_name text', 'title text', 'message text',
     'type text', 'is_read boolean default false', 'sent_date timestamptz',
-    'is_demo boolean default false',
+    'is_demo boolean default false', 'legacy_id text',
   ].join(', '),
   consent_records: [
-    'customer_id uuid', 'customer_name text', 'consent_type text', 'accepted boolean',
-    'consent_date timestamptz', 'ip_address text', 'version text',
+    'customer_id text', 'customer_name text', 'consent_type text', 'accepted boolean',
+    'consent_date timestamptz', 'ip_address text', 'version text', 'legacy_id text',
   ].join(', '),
   internal_accounts: [
     'username text', 'full_name text', 'email text', 'phone text', 'cpf text',
     'job_title text', 'role text default \'cashier\'', 'password_hash text',
-    'password_salt text', 'status text default \'active\'', 'linked_customer_id uuid',
+    'password_salt text', 'status text default \'active\'', 'linked_customer_id text',
     'last_login_at timestamptz', 'failed_attempts numeric default 0',
-    'locked_until timestamptz', 'notes text',
+    'locked_until timestamptz', 'notes text', 'legacy_id text',
   ].join(', '),
   staff_invitations: [
     'full_name text', 'email text', 'phone text', 'job_title text', 'role text',
     'status text default \'pending\'', 'invited_by text', 'invited_at timestamptz',
-    'accepted_at timestamptz',
+    'accepted_at timestamptz', 'legacy_id text',
   ].join(', '),
 };
 
-// Cria todas as tabelas (CREATE TABLE IF NOT EXISTS) e retorna a lista criada.
+// Colunas adicionadas a tabelas já existentes (executa ALTER ADD COLUMN IF NOT EXISTS).
+const COLUMN_MIGRATIONS = [
+  'ALTER TABLE customers ADD COLUMN IF NOT EXISTS legacy_id text;',
+  'ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active boolean default true;',
+  'ALTER TABLE sales ADD COLUMN IF NOT EXISTS legacy_id text;',
+  'ALTER TABLE cashback_transactions ADD COLUMN IF NOT EXISTS legacy_id text;',
+  'ALTER TABLE cashback_redemptions ADD COLUMN IF NOT EXISTS legacy_id text;',
+];
+
+// Cria todas as tabelas (CREATE TABLE IF NOT EXISTS) e aplica migrações de coluna.
 export async function ensureTables(accessToken, ref) {
   const created = [];
   for (const [name, cols] of Object.entries(TABLES)) {
@@ -140,7 +153,10 @@ export async function ensureTables(accessToken, ref) {
     await runSql(accessToken, ref, sql);
     created.push(name);
   }
-  // Atualiza updated_date automaticamente em todas as tabelas.
+  for (const sql of COLUMN_MIGRATIONS) {
+    await runSql(accessToken, ref, sql).catch(() => {});
+  }
+  // Trigger para atualizar updated_date automaticamente.
   for (const name of Object.keys(TABLES)) {
     const triggerName = `set_updated_date_${name}`;
     await runSql(accessToken, ref, `
@@ -160,4 +176,107 @@ export async function listTables(accessToken, ref) {
   const rows = await runSql(accessToken, ref,
     "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;");
   return (rows || []).map((r) => r.table_name);
+}
+
+// ===== PostgREST (acesso a linhas via service_role key) =====
+
+// Obtém e cacheia a service_role key do projeto.
+export async function getServiceRoleKey(accessToken, ref) {
+  if (cachedKey && cachedKeyRef === ref) return cachedKey;
+  const res = await fetch(`${API_BASE}/projects/${ref}/api-keys`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Erro ao obter chave service_role (${res.status}): ${await res.text()}`);
+  }
+  const keys = await res.json();
+  const sr = (keys || []).find((k) => k.name === 'service_role');
+  if (!sr) throw new Error('Chave service_role não encontrada no projeto Supabase.');
+  cachedKey = sr.api_key;
+  cachedKeyRef = ref;
+  return cachedKey;
+}
+
+function pgUrl(ref, table) {
+  return `https://${ref}.supabase.co/rest/v1/${table}`;
+}
+
+function pgHeaders(key, extra = {}) {
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    ...extra,
+  };
+}
+
+// Constrói string de filtros PostgREST a partir de objeto { col: value }.
+function buildFilter(filters) {
+  if (!filters) return '';
+  const parts = [];
+  for (const [col, val] of Object.entries(filters)) {
+    if (val === null || val === undefined) parts.push(`${col}=is.null`);
+    else if (typeof val === 'boolean') parts.push(`${col}=eq.${val}`);
+    else if (typeof val === 'number') parts.push(`${col}=eq.${val}`);
+    else parts.push(`${col}=eq.${encodeURIComponent(String(val))}`);
+  }
+  return parts.join('&');
+}
+
+// Traduz sort do estilo Base44 ('-created_date') para PostgREST ('created_date.desc').
+function translateSort(sort) {
+  if (!sort) return '';
+  const s = String(sort);
+  if (s.startsWith('-')) return `${s.slice(1)}.desc`;
+  return `${s}.asc`;
+}
+
+export async function pgList(key, ref, table, opts = {}) {
+  const { select = '*', filters, sort, limit, offset } = opts;
+  let qs = `select=${encodeURIComponent(select)}`;
+  const f = buildFilter(filters);
+  if (f) qs += `&${f}`;
+  const order = translateSort(sort);
+  if (order) qs += `&order=${encodeURIComponent(order)}`;
+  if (limit) qs += `&limit=${limit}`;
+  if (offset) qs += `&offset=${offset}`;
+  const res = await fetch(`${pgUrl(ref, table)}?${qs}`, { headers: pgHeaders(key) });
+  if (!res.ok) throw new Error(`pgList ${table} (${res.status}): ${await res.text()}`);
+  return await res.json();
+}
+
+export async function pgGet(key, ref, table, id) {
+  const rows = await pgList(key, ref, table, { filters: { id }, limit: 1 });
+  return rows && rows.length > 0 ? rows[0] : null;
+}
+
+export async function pgInsert(key, ref, table, data) {
+  const res = await fetch(pgUrl(ref, table), {
+    method: 'POST',
+    headers: pgHeaders(key, { Prefer: 'return=representation' }),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`pgInsert ${table} (${res.status}): ${await res.text()}`);
+  const arr = await res.json();
+  return Array.isArray(arr) ? arr[0] : arr;
+}
+
+export async function pgUpdate(key, ref, table, id, data) {
+  const res = await fetch(`${pgUrl(ref, table)}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: pgHeaders(key, { Prefer: 'return=representation' }),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`pgUpdate ${table} (${res.status}): ${await res.text()}`);
+  const arr = await res.json();
+  return Array.isArray(arr) ? arr[0] : arr;
+}
+
+export async function pgDelete(key, ref, table, id) {
+  const res = await fetch(`${pgUrl(ref, table)}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: pgHeaders(key),
+  });
+  if (!res.ok) throw new Error(`pgDelete ${table} (${res.status}): ${await res.text()}`);
+  return true;
 }
