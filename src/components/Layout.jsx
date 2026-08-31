@@ -7,7 +7,7 @@ import { isMasterAccount } from '@/lib/internalAuth';
 import {
   LayoutDashboard, Users, ShoppingCart, Settings, FileText, Shield,
   BarChart3, LogOut, Menu, X, ChevronRight, Wallet, UserCircle,
-  Bell, Package, UserCog
+  Bell, Package, UserCog, QrCode
 } from 'lucide-react';
 import MobileNav from '@/components/mobile/MobileNav';
 import MobileHeader from '@/components/mobile/MobileHeader';
@@ -73,11 +73,13 @@ const navByRole = {
   ],
   cliente: [
     { path: '/minha-area', label: 'Minha Área', icon: UserCircle },
+    { path: '/meu-codigo', label: 'Meu Código', icon: QrCode },
     { path: '/extrato', label: 'Extrato', icon: FileText },
     { path: '/regras', label: 'Regras do Programa', icon: Shield },
   ],
   user: [
     { path: '/minha-area', label: 'Minha Área', icon: UserCircle },
+    { path: '/meu-codigo', label: 'Meu Código', icon: QrCode },
     { path: '/extrato', label: 'Extrato', icon: FileText },
     { path: '/regras', label: 'Regras do Programa', icon: Shield },
   ],

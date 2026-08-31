@@ -8,6 +8,8 @@ import { formatCurrency, formatDate, formatPhone } from '@/lib/cashbackUtils';
 import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle, RefreshCw } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import DeleteAccountModal from '@/components/customer/DeleteAccountModal';
+import ConsentManager from '@/components/customer/ConsentManager';
+import MyCodeCard from '@/components/customer/MyCodeCard';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRouteCache } from '@/hooks/useRouteCache';
 
@@ -172,7 +174,7 @@ export default function CustomerArea() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-5">
-        {[['saldo', 'Saldo'], ['historico', 'Compras'], ['extrato', 'Cashback'], ['conta', 'Conta']].map(([v, l]) => (
+        {[['saldo', 'Saldo'], ['codigo', 'Código'], ['historico', 'Compras'], ['extrato', 'Cashback'], ['conta', 'Conta']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${tab === v ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}>
             {l}
@@ -216,6 +218,10 @@ export default function CustomerArea() {
             </div>
           )}
         </div>
+      )}
+
+      {tab === 'codigo' && (
+        <MyCodeCard customer={customer} />
       )}
 
       {tab === 'historico' && (
@@ -292,6 +298,11 @@ export default function CustomerArea() {
                 <span className="font-semibold text-xs">{customer.email}</span>
               </div>
             )}
+          </div>
+          <div className="border-t border-gray-100 pt-4 mb-4">
+            <h4 className="font-bold text-gray-900 mb-1 text-sm">Consentimentos e Privacidade</h4>
+            <p className="text-xs text-gray-500 mb-3">Gerencie suas autorizações de uso de dados e comunicações.</p>
+            <ConsentManager customer={customer} />
           </div>
           <div className="border-t border-gray-100 pt-4">
             <button onClick={() => setShowDelete(true)}
