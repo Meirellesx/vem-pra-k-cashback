@@ -281,3 +281,8 @@ export async function pgDelete(key, ref, table, id) {
   if (!res.ok) throw new Error(`pgDelete ${table} (${res.status}): ${await res.text()}`);
   return true;
 }
+
+// Insere um registro na tabela audit_logs (autoridade do serviço, ignora RLS).
+export async function insertAudit(key, ref, fields) {
+  return pgInsert(key, ref, 'audit_logs', fields);
+}

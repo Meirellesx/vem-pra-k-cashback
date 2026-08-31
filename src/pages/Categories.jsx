@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { createAuditLog } from '@/lib/cashbackUtils';
+import ProductCategory from '@/lib/productCategoriesDb';
 import { Plus, X, Check, Package, Edit2 } from 'lucide-react';
 
 const DEFAULT_CATEGORIES = [
@@ -65,24 +66,24 @@ export default function Categories() {
 
   const loadCategories = async () => {
     setLoading(true);
-    const data = await base44.entities.ProductCategory.list('-created_date');
+    const data = await ProductCategory.list('-created_date');
     setCategories(data);
     setLoading(false);
   };
 
   const seedDefaults = async () => {
     for (const cat of DEFAULT_CATEGORIES) {
-      await base44.entities.ProductCategory.create({ ...cat, is_active: true });
+      await ProductCategory.create({ ...cat, is_active: true });
     }
     loadCategories();
   };
 
   const handleSave = async (form) => {
     if (editCat) {
-      await base44.entities.ProductCategory.update(editCat.id, form);
+      await ProductCategory.update(editCat.id, form);
       await createAuditLog(user, 'update_category', 'ProductCategory', editCat.id, `Categoria atualizada: ${form.name}`, '', editCat, form);
     } else {
-      await base44.entities.ProductCategory.create({ ...form, is_active: true });
+      await ProductCategory.create({ ...form, is_active: true });
       await createAuditLog(user, 'create_category', 'ProductCategory', '', `Nova categoria: ${form.name}`, '', null, form);
     }
     setModal(null); setEditCat(null);
@@ -90,7 +91,7 @@ export default function Categories() {
   };
 
   const toggleActive = async (cat) => {
-    await base44.entities.ProductCategory.update(cat.id, { is_active: !cat.is_active });
+    await ProductCategory.update(cat.id, { is_active: !cat.is_active });
     loadCategories();
   };
 

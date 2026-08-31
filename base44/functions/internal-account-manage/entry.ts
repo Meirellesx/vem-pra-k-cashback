@@ -1,6 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import { hashPassword } from "../../shared/passwordUtils.ts";
-import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, pgGet } from "../../shared/supabase.ts";
+import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, pgGet, insertAudit } from "../../shared/supabase.ts";
 
 const STAFF_ROLES = ["admin", "manager", "cashier", "viewer", "operador"];
 
@@ -52,7 +52,7 @@ export default async function (req: Request): Promise<Response> {
       description: string,
       justification?: string
     ) =>
-      base44.entities.AuditLog.create({
+      insertAudit(key, ref, {
         user_id: actor.id,
         user_name: actor.name,
         user_role: actor.role,

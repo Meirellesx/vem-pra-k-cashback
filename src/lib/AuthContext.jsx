@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }) => {
         // Audita a ativação da conta (primeiro acesso após o usuário definir a senha).
         if (currentUser.status === 'pending') {
           try {
-            await base44.entities.AuditLog.create({
+            await (await import('@/lib/auditLogDb')).default.create({
               user_id: currentUser.id,
               user_name: currentUser.full_name || currentUser.email,
               user_role: currentUser.role,

@@ -1,4 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
+import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgUpdate, insertAudit } from "../../shared/supabase.ts";
 
 const STAFF_ROLES = ["admin", "manager", "cashier", "viewer", "operador"];
 
@@ -13,9 +14,15 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ assigned: false, reason: "missing email/user_id" });
     }
 
-    // Procura um convite pendente de funcionário para este e-mail.
-    // (Clientes que se cadastram não têm StaffInvitation → nada a fazer.)
-    const invitations = await base44.asServiceRole.entities.StaffInvitation.filter({ email, status: "pending" });
+    const conn = await getConnection(base44);
+    const ref = await getProjectRef(conn.accessToken);
+    const key = await getServiceRoleKey(conn.accessToken, ref);
+
+    // Procura um convite pendente de funcionário no Supabase.
+    const invitations = await pgList(key, ref, "staff_invitations", {
+      filters: { email, status: "pending" },
+      limit: 5,
+    });
     if (!invitations || invitations.length === 0) {
       return Response.json({ assigned: false, reason: "no pending staff invitation" });
     }
@@ -23,14 +30,14 @@ export default async function (req: Request): Promise<Response> {
     const invitation = invitations[0];
     const targetRole = STAFF_ROLES.includes(invitation.role) ? invitation.role : "cashier";
 
-    // Aplica o perfil no usuário recém-cadastrado e marca o convite como aceito.
+    // Aplica o perfil no usuário recém-cadastrado (Base44) e marca o convite como aceito (Supabase).
     await base44.asServiceRole.entities.User.update(userId, { role: targetRole });
-    await base44.asServiceRole.entities.StaffInvitation.update(invitation.id, {
+    await pgUpdate(key, ref, "staff_invitations", invitation.id, {
       status: "accepted",
       accepted_at: new Date().toISOString(),
     });
 
-    await base44.asServiceRole.entities.AuditLog.create({
+    await insertAudit(key, ref, {
       user_id: userId,
       user_name: invitation.full_name || email,
       user_role: targetRole,

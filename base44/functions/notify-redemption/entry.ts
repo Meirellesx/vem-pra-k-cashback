@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
-import { getConnection, getProjectRef, getServiceRoleKey, pgGet } from "../../shared/supabase.ts";
+import { getConnection, getProjectRef, getServiceRoleKey, pgGet, insertAudit } from "../../shared/supabase.ts";
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -59,8 +59,8 @@ Novo saldo disponível: ${formatBRL(new_balance)}.
 Obrigado por participar do Vem Pra K Cashback!`,
     });
 
-    // Registra no log de auditoria
-    await base44.entities.AuditLog.create({
+    // Registra no log de auditoria (Supabase)
+    await insertAudit(key, ref, {
       user_id: user.id,
       user_name: user.full_name || user.email,
       user_role: user.role,

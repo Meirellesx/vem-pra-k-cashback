@@ -19,6 +19,7 @@ import {
 import { getOperator } from '@/lib/internalAuth';
 import { STAFF_ROLES, USER_STATUS } from '@/lib/constants';
 import { formatDateTime, formatDate } from '@/lib/cashbackUtils';
+import AuditLog from '@/lib/auditLogDb';
 import {
   UserCog, Search, Plus, Edit, Ban, CheckCircle, KeyRound, Lock, ChevronDown,
 } from 'lucide-react';
@@ -50,7 +51,7 @@ export default function Users() {
     try {
       const [staff, logs] = await Promise.all([
         getStaffUsers(),
-        base44.entities.AuditLog.filter({ entity_type: 'InternalAccount' }, '-created_date', 15).catch(() => []),
+        AuditLog.filter({ entity_type: 'InternalAccount' }, '-created_date', 15).catch(() => []),
       ]);
       setUsers(staff);
       setRecentLogs(logs || []);

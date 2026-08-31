@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { createAuditLog } from '@/lib/cashbackUtils';
+import CashbackSettings from '@/lib/cashbackSettingsDb';
 import { Save, Settings as SettingsIcon, Info } from 'lucide-react';
 
 export default function Settings() {
@@ -24,7 +25,7 @@ export default function Settings() {
 
   const loadSettings = async () => {
     setLoading(true);
-    const data = await base44.entities.CashbackSettings.list();
+    const data = await CashbackSettings.list();
     if (data.length > 0) {
       setForm({ ...form, ...data[0] });
       setSettingsId(data[0].id);
@@ -37,11 +38,11 @@ export default function Settings() {
     try {
       const payload = { ...form, updated_by: user?.id || '' };
       if (settingsId) {
-        const before = await base44.entities.CashbackSettings.get(settingsId);
-        await base44.entities.CashbackSettings.update(settingsId, payload);
+        const before = await CashbackSettings.get(settingsId);
+        await CashbackSettings.update(settingsId, payload);
         await createAuditLog(user, 'update_settings', 'CashbackSettings', settingsId, 'Configurações do programa atualizadas', '', before, payload);
       } else {
-        const created = await base44.entities.CashbackSettings.create(payload);
+        const created = await CashbackSettings.create(payload);
         setSettingsId(created.id);
         await createAuditLog(user, 'create_settings', 'CashbackSettings', created.id, 'Configurações iniciais criadas', '', null, payload);
       }

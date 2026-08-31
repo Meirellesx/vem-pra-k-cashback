@@ -1,4 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
+import { getConnection, getProjectRef, getServiceRoleKey, insertAudit } from "../../shared/supabase.ts";
 
 const APP_URL = "https://vem-pra-k-cashback.base44.app";
 
@@ -47,7 +48,10 @@ Bem-vindo(a)!
 Equipe Vem Pra K Cashback`,
     });
 
-    await base44.entities.AuditLog.create({
+    const conn = await getConnection(base44);
+    const ref = await getProjectRef(conn.accessToken);
+    const key = await getServiceRoleKey(conn.accessToken, ref);
+    await insertAudit(key, ref, {
       user_id: user.id,
       user_name: user.full_name || user.email,
       user_role: user.role,

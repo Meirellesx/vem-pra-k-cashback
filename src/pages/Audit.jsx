@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatDateTime, exportToCSV } from '@/lib/cashbackUtils';
+import AuditLog from '@/lib/auditLogDb';
 import { Shield, Search, Download, Filter } from 'lucide-react';
 
 export default function Audit() {
@@ -13,7 +14,7 @@ export default function Audit() {
 
   const loadLogs = async () => {
     setLoading(true);
-    const data = await base44.entities.AuditLog.list('-created_date', 500);
+    const data = await AuditLog.list('-created_date', 500);
     setLogs(data.filter(l => !l.is_demo));
     setLoading(false);
   };

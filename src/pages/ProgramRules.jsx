@@ -7,7 +7,7 @@ export default function ProgramRules() {
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
-    base44.entities.CashbackSettings.list().then(d => { if (d.length > 0) setSettings(d[0]); });
+    import('@/lib/cashbackSettingsDb').then(m => m.default.list().then(d => { if (d.length > 0) setSettings(d[0]); }));
   }, []);
 
   const rules = settings ? [

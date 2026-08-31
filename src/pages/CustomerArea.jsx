@@ -29,7 +29,7 @@ export default function CustomerArea() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const s = await base44.entities.CashbackSettings.list();
+      const s = await (await import('@/lib/cashbackSettingsDb')).default.list();
       if (s.length > 0) setSettings(s[0]);
 
       if (!user?.id) { setLoading(false); return; }

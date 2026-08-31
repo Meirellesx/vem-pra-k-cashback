@@ -9,6 +9,7 @@ import { Search, CheckCircle, AlertTriangle, User, Plus, DollarSign, ShoppingBag
 import { PAYMENT_METHODS } from '@/lib/constants';
 import { getOperator } from '@/lib/internalAuth';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
+import ProductCategory from '@/lib/productCategoriesDb';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -38,7 +39,7 @@ export default function Sales() {
   const loadInit = async () => {
     const [s, cats, mine] = await Promise.all([
       getSettings(),
-      base44.entities.ProductCategory.filter({ is_active: true }),
+      ProductCategory.filter({ is_active: true }),
       getMyCustomer(operator),
     ]);
     setSettings(s);

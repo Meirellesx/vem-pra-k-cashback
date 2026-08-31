@@ -1,8 +1,10 @@
 import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
+import CashbackSettings from '@/lib/cashbackSettingsDb';
+import AuditLog from '@/lib/auditLogDb';
 
 export const getSettings = async () => {
-  const settings = await base44.entities.CashbackSettings.list();
+  const settings = await CashbackSettings.list();
   if (settings && settings.length > 0) return settings[0];
   return {
     cashback_percentage: 5,
@@ -74,7 +76,7 @@ export const formatCpf = (cpf) => {
 
 export const createAuditLog = async (user, action, entityType, entityId, description, justification, beforeData, afterData) => {
   try {
-    await base44.entities.AuditLog.create({
+    await AuditLog.create({
       user_id: user?.id || 'system',
       user_name: user?.full_name || 'Sistema',
       user_role: user?.role || 'sistema',
