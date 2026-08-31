@@ -67,22 +67,16 @@ export default async function (req: Request): Promise<Response> {
     if (action === "create") {
       const { full_name, email, phone, cpf, job_title, role, password } = body;
       if (!full_name || !email || !password || !role) {
-        return Response.json(
-          { success: false, error: "Nome, e-mail, senha e perfil são obrigatórios." },
-          { status: 400 }
-        );
+        return Response.json({ success: false, error: "Nome, e-mail, senha e perfil são obrigatórios." });
       }
       if (!STAFF_ROLES.includes(role)) {
-        return Response.json({ success: false, error: "Perfil inválido." }, { status: 400 });
+        return Response.json({ success: false, error: "Perfil inválido." });
       }
       const username = String(email).toLowerCase().trim();
 
       const existing = await pgList(key, ref, "internal_accounts", { filters: { username }, limit: 1 });
       if (existing && existing.length > 0) {
-        return Response.json(
-          { success: false, error: "Já existe um login interno com este e-mail." },
-          { status: 400 }
-        );
+        return Response.json({ success: false, error: "Já existe um login interno com este e-mail." });
       }
 
       const { hash, salt } = await hashPassword(password);
@@ -139,7 +133,7 @@ export default async function (req: Request): Promise<Response> {
 
     if (action === "update") {
       const { id, full_name, phone, job_title } = body;
-      if (!id) return Response.json({ success: false, error: "ID obrigatório." }, { status: 400 });
+      if (!id) return Response.json({ success: false, error: "ID obrigatório." });
       const before = await pgGet(key, ref, "internal_accounts", id);
       const updates: Record<string, unknown> = {};
       if (full_name !== undefined) updates.full_name = full_name;
@@ -160,10 +154,7 @@ export default async function (req: Request): Promise<Response> {
     if (action === "resetPassword") {
       const { id, newPassword } = body;
       if (!id || !newPassword) {
-        return Response.json(
-          { success: false, error: "ID e nova senha são obrigatórios." },
-          { status: 400 }
-        );
+        return Response.json({ success: false, error: "ID e nova senha são obrigatórios." });
       }
       const before = await pgGet(key, ref, "internal_accounts", id);
       const { hash, salt } = await hashPassword(newPassword);
@@ -183,12 +174,9 @@ export default async function (req: Request): Promise<Response> {
 
     if (action === "block") {
       const { id, justification } = body;
-      if (!id) return Response.json({ success: false, error: "ID obrigatório." }, { status: 400 });
+      if (!id) return Response.json({ success: false, error: "ID obrigatório." });
       if (!justification || !String(justification).trim()) {
-        return Response.json(
-          { success: false, error: "Justificativa é obrigatória." },
-          { status: 400 }
-        );
+        return Response.json({ success: false, error: "Justificativa é obrigatória." });
       }
       const before = await pgGet(key, ref, "internal_accounts", id);
       await pgUpdate(key, ref, "internal_accounts", id, { status: "blocked" });
@@ -203,7 +191,7 @@ export default async function (req: Request): Promise<Response> {
 
     if (action === "reactivate") {
       const { id } = body;
-      if (!id) return Response.json({ success: false, error: "ID obrigatório." }, { status: 400 });
+      if (!id) return Response.json({ success: false, error: "ID obrigatório." });
       const before = await pgGet(key, ref, "internal_accounts", id);
       await pgUpdate(key, ref, "internal_accounts", id, {
         status: "active",
@@ -221,16 +209,13 @@ export default async function (req: Request): Promise<Response> {
     if (action === "changeRole") {
       const { id, role, justification } = body;
       if (!id || !role) {
-        return Response.json({ success: false, error: "ID e perfil são obrigatórios." }, { status: 400 });
+        return Response.json({ success: false, error: "ID e perfil são obrigatórios." });
       }
       if (!STAFF_ROLES.includes(role)) {
-        return Response.json({ success: false, error: "Perfil inválido." }, { status: 400 });
+        return Response.json({ success: false, error: "Perfil inválido." });
       }
       if (!justification || !String(justification).trim()) {
-        return Response.json(
-          { success: false, error: "Justificativa é obrigatória." },
-          { status: 400 }
-        );
+        return Response.json({ success: false, error: "Justificativa é obrigatória." });
       }
       const before = await pgGet(key, ref, "internal_accounts", id);
       await pgUpdate(key, ref, "internal_accounts", id, { role });
@@ -293,7 +278,7 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: true, id: account.id, created: true });
     }
 
-    return Response.json({ success: false, error: "Ação inválida." }, { status: 400 });
+    return Response.json({ success: false, error: "Ação inválida." });
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
