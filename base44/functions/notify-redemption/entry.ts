@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
-import { getConnection, getProjectRef, getServiceRoleKey, pgGet, insertAudit } from "../../shared/supabase.ts";
+import { getConnection, getProjectRef, getServiceRoleKey, pgGet, insertAudit, insertCashbackNotification } from "../../shared/supabase.ts";
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -27,6 +27,14 @@ export default async function (req: Request): Promise<Response> {
     const ref = await getProjectRef(conn.accessToken);
     const key = await getServiceRoleKey(conn.accessToken, ref);
     const customer = await pgGet(key, ref, "customers", customer_id);
+    // Cria a notificação in-app de cashback utilizado (o bot apresenta ao cliente).
+    await insertCashbackNotification(key, ref, {
+      customer_id,
+      customer_name: customer_name || (customer && customer.name) || "",
+      event: "utilizado",
+      amount: Number(amount) || 0,
+      sale_number: sale_number || "",
+    }).catch(() => {});
     let email = customer?.email;
 
     // Se o cliente não tem e-mail próprio, busca o usuário que o criou.

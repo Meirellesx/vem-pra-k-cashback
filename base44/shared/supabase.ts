@@ -336,6 +336,12 @@ export async function insertCashbackNotification(key, ref, payload) {
     type = "cashback_expirado";
     title = "Cashback expirado 💔";
     message = `Olá ${name}! Um cashback de ${formatBRL(amt)} expirou e não está mais disponível. Fique atento às datas de validade!`;
+  } else if (event === "utilizado") {
+    type = "cashback_utilizado";
+    title = "Cashback utilizado 🛍️";
+    message = payload.sale_number
+      ? `Olá ${name}! Você utilizou ${formatBRL(amt)} de cashback na venda #${payload.sale_number}. Obrigado por participar do Vem Pra K Cashback!`
+      : `Olá ${name}! Você utilizou ${formatBRL(amt)} de cashback. Obrigado por participar do Vem Pra K Cashback!`;
   } else {
     return null;
   }
