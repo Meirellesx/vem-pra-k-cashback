@@ -1,0 +1,45 @@
+{
+  "name": "Cashback Expiry Alert",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 9 * * *",
+      "one_time_date": null,
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "cashback_expiry_alert",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "scan_expiry": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "cashback-expiry-alert",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Escanear cashback prestes a vencer",
+            "description": "Cria avisos de vencimento (7 dias antes)"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Varre diariamente as transa\u00e7\u00f5es de cashback dispon\u00edveis que vencem nos pr\u00f3ximos 7 dias e cria um aviso de vencimento para o cliente. O bot apresenta o aviso quando o cliente abre o chat no WhatsApp."
+}
