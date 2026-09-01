@@ -59,6 +59,10 @@
       "type": "boolean",
       "title": "Dados de demonstra\u00e7\u00e3o",
       "default": false
+    },
+    "legacy_id": {
+      "type": "string",
+      "title": "ID no Supabase (espelho)"
     }
   },
   "required": [

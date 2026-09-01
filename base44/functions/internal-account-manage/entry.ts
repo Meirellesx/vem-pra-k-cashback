@@ -1,6 +1,7 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import { hashPassword } from "../../shared/passwordUtils.ts";
 import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, pgGet, insertAudit } from "../../shared/supabase.ts";
+import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 const STAFF_ROLES = ["admin", "manager", "cashier", "viewer", "operador"];
 
@@ -62,7 +63,7 @@ export default async function (req: Request): Promise<Response> {
         description,
         justification: justification || "",
         is_demo: false,
-      });
+      }).then((row) => mirrorRow(base44, "audit_logs", row).then(() => row));
 
     if (action === "create") {
       const { full_name, email, phone, cpf, job_title, role, password } = body;
@@ -103,8 +104,10 @@ export default async function (req: Request): Promise<Response> {
           created_by_id: user.id,
         });
       } else if (!customer.cpf && cpf) {
-        await pgUpdate(key, ref, "customers", customer.id, { cpf, identifier_code: cpfToCode(cpf) }).catch(() => {});
+        const custUpd = await pgUpdate(key, ref, "customers", customer.id, { cpf, identifier_code: cpfToCode(cpf) }).catch(() => null);
+        if (custUpd) await mirrorRow(base44, "customers", custUpd);
       }
+      await mirrorRow(base44, "customers", customer);
 
       const account = await pgInsert(key, ref, "internal_accounts", {
         username,
@@ -121,6 +124,7 @@ export default async function (req: Request): Promise<Response> {
         failed_attempts: 0,
         created_by_id: user.id,
       });
+      await mirrorRow(base44, "internal_accounts", account);
 
       await audit(
         "create_internal_account",
@@ -149,9 +153,11 @@ export default async function (req: Request): Promise<Response> {
         roleChanged = true;
       }
       if (full_name && before.linked_customer_id) {
-        await pgUpdate(key, ref, "customers", before.linked_customer_id, { name: full_name }).catch(() => {});
+        const custUpd = await pgUpdate(key, ref, "customers", before.linked_customer_id, { name: full_name }).catch(() => null);
+        if (custUpd) await mirrorRow(base44, "customers", custUpd);
       }
-      await pgUpdate(key, ref, "internal_accounts", id, updates);
+      const accUpd = await pgUpdate(key, ref, "internal_accounts", id, updates);
+      await mirrorRow(base44, "internal_accounts", accUpd);
       const desc = roleChanged
         ? `Login interno atualizado: ${before.full_name || before.username} — perfil: ${roleLabel(prevRole || "")} → ${roleLabel(role)}`
         : `Login interno atualizado: ${before.full_name || before.username}`;
@@ -166,12 +172,13 @@ export default async function (req: Request): Promise<Response> {
       }
       const before = await pgGet(key, ref, "internal_accounts", id);
       const { hash, salt } = await hashPassword(newPassword);
-      await pgUpdate(key, ref, "internal_accounts", id, {
+      const rpUpd = await pgUpdate(key, ref, "internal_accounts", id, {
         password_hash: hash,
         password_salt: salt,
         failed_attempts: 0,
         locked_until: null,
       });
+      await mirrorRow(base44, "internal_accounts", rpUpd);
       await audit(
         "reset_internal_password",
         id,
@@ -187,7 +194,8 @@ export default async function (req: Request): Promise<Response> {
         return Response.json({ success: false, error: "Justificativa é obrigatória." });
       }
       const before = await pgGet(key, ref, "internal_accounts", id);
-      await pgUpdate(key, ref, "internal_accounts", id, { status: "blocked" });
+      const blkUpd = await pgUpdate(key, ref, "internal_accounts", id, { status: "blocked" });
+      await mirrorRow(base44, "internal_accounts", blkUpd);
       await audit(
         "block_internal_account",
         id,
@@ -201,11 +209,12 @@ export default async function (req: Request): Promise<Response> {
       const { id } = body;
       if (!id) return Response.json({ success: false, error: "ID obrigatório." });
       const before = await pgGet(key, ref, "internal_accounts", id);
-      await pgUpdate(key, ref, "internal_accounts", id, {
+      const reUpd = await pgUpdate(key, ref, "internal_accounts", id, {
         status: "active",
         failed_attempts: 0,
         locked_until: null,
       });
+      await mirrorRow(base44, "internal_accounts", reUpd);
       await audit(
         "reactivate_internal_account",
         id,
@@ -226,7 +235,8 @@ export default async function (req: Request): Promise<Response> {
         return Response.json({ success: false, error: "Justificativa é obrigatória." });
       }
       const before = await pgGet(key, ref, "internal_accounts", id);
-      await pgUpdate(key, ref, "internal_accounts", id, { role });
+      const crUpd = await pgUpdate(key, ref, "internal_accounts", id, { role });
+      await mirrorRow(base44, "internal_accounts", crUpd);
       await audit(
         "change_internal_role",
         id,
@@ -252,7 +262,8 @@ export default async function (req: Request): Promise<Response> {
         const acc = existing[0];
         // O Base44 admin deve ter perfil admin no login interno — promove se divergir.
         if (acc.role !== "admin") {
-          await pgUpdate(key, ref, "internal_accounts", acc.id, { role: "admin" });
+          const syncUpd = await pgUpdate(key, ref, "internal_accounts", acc.id, { role: "admin" });
+          await mirrorRow(base44, "internal_accounts", syncUpd);
           await audit(
             "sync_internal_account",
             acc.id,
@@ -278,6 +289,7 @@ export default async function (req: Request): Promise<Response> {
         created_by_id: user.id,
         notes: "Perfil sincronizado automaticamente (admin Base44).",
       });
+      await mirrorRow(base44, "internal_accounts", account);
       await audit(
         "sync_internal_account",
         account.id,

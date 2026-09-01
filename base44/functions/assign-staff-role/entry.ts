@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgUpdate, insertAudit } from "../../shared/supabase.ts";
+import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 const STAFF_ROLES = ["admin", "manager", "cashier", "viewer", "operador"];
 
@@ -32,12 +33,13 @@ export default async function (req: Request): Promise<Response> {
 
     // Aplica o perfil no usuário recém-cadastrado (Base44) e marca o convite como aceito (Supabase).
     await base44.asServiceRole.entities.User.update(userId, { role: targetRole });
-    await pgUpdate(key, ref, "staff_invitations", invitation.id, {
+    const invUpd = await pgUpdate(key, ref, "staff_invitations", invitation.id, {
       status: "accepted",
       accepted_at: new Date().toISOString(),
     });
+    await mirrorRow(base44, "staff_invitations", invUpd);
 
-    await insertAudit(key, ref, {
+    const audit = await insertAudit(key, ref, {
       user_id: userId,
       user_name: invitation.full_name || email,
       user_role: targetRole,
@@ -47,6 +49,7 @@ export default async function (req: Request): Promise<Response> {
       description: `Perfil atribuído automaticamente no cadastro: ${invitation.full_name || email} → ${targetRole}`,
       is_demo: false,
     });
+    await mirrorRow(base44, "audit_logs", audit);
 
     return Response.json({ assigned: true, role: targetRole });
   } catch (error) {

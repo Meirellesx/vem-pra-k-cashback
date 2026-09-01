@@ -2,6 +2,7 @@ import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import {
   getConnection, getProjectRef, getServiceRoleKey, pgGet, pgInsert, runSql, insertAudit,
 } from "../../shared/supabase.ts";
+import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 // Quantos dias antes do vencimento disparar o aviso.
 const ALERT_DAYS = 7;
@@ -71,7 +72,7 @@ export default async function (req: Request): Promise<Response> {
         const c = await pgGet(key, ref, "customers", tx.customer_id).catch(() => null);
         name = c?.name || "Cliente";
       }
-      await pgInsert(key, ref, "notifications", {
+      const notif = await pgInsert(key, ref, "notifications", {
         customer_id: tx.customer_id,
         customer_name: name,
         title: "Seu cashback está prestes a vencer ⏰",
@@ -81,12 +82,13 @@ export default async function (req: Request): Promise<Response> {
         sent_date: new Date().toISOString(),
         is_demo: false,
       });
+      await mirrorRow(base44, "notifications", notif);
       await runSql(mgmtToken, ref, `UPDATE cashback_transactions SET expiry_alerted = true WHERE id = '${tx.id}';`);
       alerted++;
     }
 
     if (alerted > 0) {
-      await insertAudit(key, ref, {
+      const audit = await insertAudit(key, ref, {
         user_id: user.id,
         user_name: user.full_name || user.email || "Sistema",
         user_role: user.role,
@@ -95,7 +97,8 @@ export default async function (req: Request): Promise<Response> {
         entity_id: "",
         description: `Avisos de vencimento enviados: ${alerted} transação(ões) com vencimento até ${formatDate(horizon)}.`,
         is_demo: false,
-      }).catch(() => {});
+      }).catch(() => null);
+      if (audit) await mirrorRow(base44, "audit_logs", audit);
     }
 
     return Response.json({ success: true, alerted, horizon: formatDate(horizon), date: today });

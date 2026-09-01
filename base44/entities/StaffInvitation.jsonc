@@ -54,6 +54,10 @@
       "type": "string",
       "format": "date-time",
       "title": "Data de aceite"
+    },
+    "legacy_id": {
+      "type": "string",
+      "title": "ID no Supabase (espelho)"
     }
   },
   "required": [

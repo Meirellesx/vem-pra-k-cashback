@@ -28,6 +28,10 @@
       "type": "boolean",
       "title": "Ativa",
       "default": true
+    },
+    "legacy_id": {
+      "type": "string",
+      "title": "ID no Supabase (espelho)"
     }
   },
   "required": [

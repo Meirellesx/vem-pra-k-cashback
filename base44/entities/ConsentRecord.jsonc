@@ -35,6 +35,10 @@
     "version": {
       "type": "string",
       "title": "Vers\u00e3o do documento"
+    },
+    "legacy_id": {
+      "type": "string",
+      "title": "ID no Supabase (espelho)"
     }
   },
   "required": [

@@ -5,6 +5,7 @@ import {
   getConnection, getProjectRef, ensureTables, listTables,
   getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql,
 } from '../../shared/supabase.ts';
+import { mirrorRow, mirrorDelete } from '../../shared/nativeMirror.ts';
 
 // Tabelas permitidas para CRUD genérico via esta função.
 // Todas as entidades do app agora vivem no Supabase; o Base44 funciona apenas como backup.
@@ -199,14 +200,17 @@ export default async function(req) {
       const data = { ...body.data };
       if (!data.created_by_id) data.created_by_id = user.id;
       const row = await pgInsert(key, ref, table, data);
+      await mirrorRow(base44, table, row);
       return Response.json({ data: row });
     }
     if (op === 'update') {
       const row = await pgUpdate(key, ref, table, body.id, body.data);
+      await mirrorRow(base44, table, row);
       return Response.json({ data: row });
     }
     if (op === 'delete') {
       await pgDelete(key, ref, table, body.id);
+      await mirrorDelete(base44, table, body.id);
       return Response.json({ data: { success: true } });
     }
 

@@ -2,6 +2,7 @@ import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import {
   getConnection, getProjectRef, getServiceRoleKey, pgGet, pgInsert, insertAudit,
 } from "../../shared/supabase.ts";
+import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 const formatBRL = (v: number) => "R$ " + Number(v || 0).toFixed(2).replace(".", ",");
 const formatDate = (d: string) => {
@@ -106,8 +107,9 @@ export default async function (req: Request): Promise<Response> {
       sent_date: new Date().toISOString(),
       is_demo: false,
     });
+    if (notif) await mirrorRow(base44, "notifications", notif);
 
-    await insertAudit(key, ref, {
+    const audit = await insertAudit(key, ref, {
       user_id: user.id,
       user_name: user.full_name || user.email || "Sistema",
       user_role: user.role,
@@ -116,7 +118,8 @@ export default async function (req: Request): Promise<Response> {
       entity_id: transaction_id || "",
       description: `Notificação "${notifType}" criada para ${name} — ${formatBRL(amt)}.`,
       is_demo: false,
-    }).catch(() => {});
+    }).catch(() => null);
+    if (audit) await mirrorRow(base44, "audit_logs", audit);
 
     return Response.json({ success: true, notification_id: notif?.id, type: notifType });
   } catch (error) {

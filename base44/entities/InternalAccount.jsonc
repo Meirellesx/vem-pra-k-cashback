@@ -78,6 +78,10 @@
     "notes": {
       "type": "string",
       "title": "Observa\u00e7\u00f5es"
+    },
+    "legacy_id": {
+      "type": "string",
+      "title": "ID no Supabase (espelho)"
     }
   },
   "required": [

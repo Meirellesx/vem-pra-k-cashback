@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 import { getConnection, getProjectRef, getServiceRoleKey, pgGet, insertAudit, insertCashbackNotification } from "../../shared/supabase.ts";
+import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -28,13 +29,14 @@ export default async function (req: Request): Promise<Response> {
     const key = await getServiceRoleKey(conn.accessToken, ref);
     const customer = await pgGet(key, ref, "customers", customer_id);
     // Cria a notificação in-app de cashback utilizado (o bot apresenta ao cliente).
-    await insertCashbackNotification(key, ref, {
+    const notif = await insertCashbackNotification(key, ref, {
       customer_id,
       customer_name: customer_name || (customer && customer.name) || "",
       event: "utilizado",
       amount: Number(amount) || 0,
       sale_number: sale_number || "",
-    }).catch(() => {});
+    }).catch(() => null);
+    if (notif) await mirrorRow(base44, "notifications", notif);
     let email = customer?.email;
 
     // Se o cliente não tem e-mail próprio, busca o usuário que o criou.
@@ -68,7 +70,7 @@ Obrigado por participar do Vem Pra K Cashback!`,
     });
 
     // Registra no log de auditoria (Supabase)
-    await insertAudit(key, ref, {
+    const audit = await insertAudit(key, ref, {
       user_id: user.id,
       user_name: user.full_name || user.email,
       user_role: user.role,
@@ -77,6 +79,7 @@ Obrigado por participar do Vem Pra K Cashback!`,
       description: `E-mail de resgate enviado para ${customer_name} — ${email}`,
       is_demo: false,
     });
+    await mirrorRow(base44, "audit_logs", audit);
 
     return Response.json({ success: true, email });
   } catch (error) {

@@ -3,6 +3,7 @@ import {
   getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, runSql,
   insertCashbackNotification,
 } from '../../shared/supabase.ts';
+import { mirrorRow, patchNativeByLegacyId, mirrorCustomerFromSupabase } from '../../shared/nativeMirror.ts';
 
 // Registra uma venda + geração de cashback + atualização de saldo + auditoria
 // em uma ÚNICA invocação, resolvendo a conexão Supabase uma vez e reutilizando a
@@ -64,6 +65,7 @@ export default async function (req) {
       is_demo: !!is_demo,
       created_by_id: user.id,
     });
+    await mirrorRow(base44, 'sales', sale);
 
     let txId = null;
     if (generate_cashback && cbAmount > 0 && customer_id) {
@@ -86,27 +88,32 @@ export default async function (req) {
       });
       txId = tx.id;
 
+      await mirrorRow(base44, 'cashback_transactions', tx);
+
       // 4. Atualiza o saldo do cliente (incremento atômico via SQL).
       const col = cashback_status === 'disponivel' ? 'available_balance' : 'pending_balance';
       await runSql(conn.accessToken, ref,
         `UPDATE customers SET ${col} = ${col} + ${cbAmount}, total_cashback_earned = total_cashback_earned + ${cbAmount} WHERE id = '${customer_id}';`);
+      await mirrorCustomerFromSupabase(base44, key, ref, customer_id);
 
       // 5. Vincula a transação à venda.
       await pgUpdate(key, ref, 'sales', sale.id, { cashback_transaction_id: txId });
+      await patchNativeByLegacyId(base44, 'sales', sale.id, { cashback_transaction_id: txId, cashback_generated: true });
 
       // 6. Cria a notificação in-app de cashback gerado (o bot apresenta ao cliente).
-      await insertCashbackNotification(key, ref, {
+      const notif = await insertCashbackNotification(key, ref, {
         customer_id,
         customer_name: customer_name || '',
         event: 'gerado',
         amount: cbAmount,
         available_date: available_date || null,
         is_demo: !!is_demo,
-      }).catch(() => {});
+      }).catch(() => null);
+      if (notif) await mirrorRow(base44, 'notifications', notif);
     }
 
     // 6. Auditoria.
-    await pgInsert(key, ref, 'audit_logs', {
+    const audit = await pgInsert(key, ref, 'audit_logs', {
       user_id: operator_id || user.id,
       user_name: operator_name || user.full_name || 'Sistema',
       user_role: operator_role || user.role || 'sistema',
@@ -120,7 +127,8 @@ export default async function (req) {
       ip_address: '',
       is_demo: !!is_demo,
       created_by_id: user.id,
-    });
+    } as any);
+    await mirrorRow(base44, 'audit_logs', audit);
 
     return Response.json({ sale, cashback_transaction_id: txId, cashback_amount: cbAmount });
   } catch (error) {

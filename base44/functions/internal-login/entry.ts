@@ -1,6 +1,7 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import { verifyPassword } from "../../shared/passwordUtils.ts";
 import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgUpdate } from "../../shared/supabase.ts";
+import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
@@ -77,18 +78,20 @@ export default async function (req: Request): Promise<Response> {
         ).toISOString();
         updates.failed_attempts = 0;
       }
-      await pgUpdate(key, ref, "internal_accounts", account.id, updates);
+      const failUpd = await pgUpdate(key, ref, "internal_accounts", account.id, updates);
+      await mirrorRow(base44, "internal_accounts", failUpd);
       return Response.json(
         { success: false, error: "Usuário ou senha inválidos." },
         { status: 401 }
       );
     }
 
-    await pgUpdate(key, ref, "internal_accounts", account.id, {
+    const okUpd = await pgUpdate(key, ref, "internal_accounts", account.id, {
       failed_attempts: 0,
       locked_until: null,
       last_login_at: new Date().toISOString(),
     });
+    await mirrorRow(base44, "internal_accounts", okUpd);
 
     return Response.json({
       success: true,

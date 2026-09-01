@@ -48,6 +48,10 @@
     "updated_by": {
       "type": "string",
       "title": "Atualizado por"
+    },
+    "legacy_id": {
+      "type": "string",
+      "title": "ID no Supabase (espelho)"
     }
   },
   "rls": {
@@ -67,6 +71,5 @@
         "role": "admin"
       }
     }
-  },
-  "required": []
+  }
 }

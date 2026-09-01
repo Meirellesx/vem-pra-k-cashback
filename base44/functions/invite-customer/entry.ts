@@ -1,5 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 import { getConnection, getProjectRef, getServiceRoleKey, insertAudit } from "../../shared/supabase.ts";
+import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 const APP_URL = "https://vem-pra-k-cashback.base44.app";
 
@@ -51,7 +52,7 @@ Equipe Vem Pra K Cashback`,
     const conn = await getConnection(base44);
     const ref = await getProjectRef(conn.accessToken);
     const key = await getServiceRoleKey(conn.accessToken, ref);
-    await insertAudit(key, ref, {
+    const audit = await insertAudit(key, ref, {
       user_id: user.id,
       user_name: user.full_name || user.email,
       user_role: user.role,
@@ -60,6 +61,7 @@ Equipe Vem Pra K Cashback`,
       description: `Convite de criação de conta enviado para ${name || email} — ${email}`,
       is_demo: false,
     });
+    await mirrorRow(base44, "audit_logs", audit);
 
     return Response.json({ success: true, email });
   } catch (error) {

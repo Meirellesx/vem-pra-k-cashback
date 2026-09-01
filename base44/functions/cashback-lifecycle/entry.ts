@@ -3,6 +3,7 @@ import {
   getConnection, getProjectRef, getServiceRoleKey, runSql, pgInsert, insertAudit,
   insertCashbackNotification,
 } from "../../shared/supabase.ts";
+import { mirrorRow, patchNativeByLegacyId, mirrorCustomerFromSupabase } from "../../shared/nativeMirror.ts";
 
 const escape = (s: unknown) => String(s ?? "").replace(/'/g, "''");
 
@@ -57,12 +58,15 @@ export default async function (req: Request): Promise<Response> {
                pending_balance = GREATEST(COALESCE(pending_balance, 0) - ${Number(tx.amount) || 0}, 0)
          WHERE id = '${escape(tx.customer_id)}';`
       );
-      await insertCashbackNotification(key, ref, {
+      await patchNativeByLegacyId(base44, "cashback_transactions", tx.id, { status: "disponivel" });
+      await mirrorCustomerFromSupabase(base44, key, ref, tx.customer_id);
+      const notifRel = await insertCashbackNotification(key, ref, {
         customer_id: tx.customer_id,
         customer_name: tx.customer_name || "",
         event: "liberado",
         amount: Number(tx.amount) || 0,
-      }).catch(() => {});
+      }).catch(() => null);
+      if (notifRel) await mirrorRow(base44, "notifications", notifRel);
       released++;
     }
 
@@ -82,6 +86,7 @@ export default async function (req: Request): Promise<Response> {
         mgmtToken, ref,
         `UPDATE cashback_transactions SET status = 'expirado' WHERE id = '${escape(tx.id)}';`
       );
+      await patchNativeByLegacyId(base44, "cashback_transactions", tx.id, { status: "expirado" });
       if (remaining > 0) {
         await runSql(
           mgmtToken, ref,
@@ -89,8 +94,9 @@ export default async function (req: Request): Promise<Response> {
              SET available_balance = GREATEST(COALESCE(available_balance, 0) - ${remaining}, 0)
            WHERE id = '${escape(tx.customer_id)}';`
         );
+        await mirrorCustomerFromSupabase(base44, key, ref, tx.customer_id);
         // Transação de rastreabilidade da expiração.
-        await pgInsert(key, ref, "cashback_transactions", {
+        const expTx = await pgInsert(key, ref, "cashback_transactions", {
           customer_id: tx.customer_id,
           customer_name: tx.customer_name || "",
           amount: -remaining,
@@ -102,12 +108,14 @@ export default async function (req: Request): Promise<Response> {
           notes: "Expiração automática (workflow agendado)",
           created_by_id: user.id,
         });
-        await insertCashbackNotification(key, ref, {
+        await mirrorRow(base44, "cashback_transactions", expTx);
+        const notifExp = await insertCashbackNotification(key, ref, {
           customer_id: tx.customer_id,
           customer_name: tx.customer_name || "",
           event: "expirado",
           amount: remaining,
-        }).catch(() => {});
+        }).catch(() => null);
+        if (notifExp) await mirrorRow(base44, "notifications", notifExp);
         expiredTotal += remaining;
       }
       expired++;
@@ -115,7 +123,7 @@ export default async function (req: Request): Promise<Response> {
 
     // ===== Auditoria =====
     if (released > 0 || expired > 0) {
-      await insertAudit(key, ref, {
+      const audit = await insertAudit(key, ref, {
         user_id: user.id,
         user_name: user.full_name || user.email || "Sistema",
         user_role: user.role,
@@ -126,6 +134,7 @@ export default async function (req: Request): Promise<Response> {
           `Ciclo de vida do cashback: ${released} liberação(ões), ${expired} expiração(ões) — R$ ${expiredTotal.toFixed(2)}.`,
         is_demo: false,
       });
+      await mirrorRow(base44, "audit_logs", audit);
     }
 
     return Response.json({ success: true, released, expired, expiredTotal, date: today });
