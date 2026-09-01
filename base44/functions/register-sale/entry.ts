@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
   getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, runSql,
+  insertCashbackNotification,
 } from '../../shared/supabase.ts';
 
 // Registra uma venda + geração de cashback + atualização de saldo + auditoria
@@ -92,6 +93,16 @@ export default async function (req) {
 
       // 5. Vincula a transação à venda.
       await pgUpdate(key, ref, 'sales', sale.id, { cashback_transaction_id: txId });
+
+      // 6. Cria a notificação in-app de cashback gerado (o bot apresenta ao cliente).
+      await insertCashbackNotification(key, ref, {
+        customer_id,
+        customer_name: customer_name || '',
+        event: 'gerado',
+        amount: cbAmount,
+        available_date: available_date || null,
+        is_demo: !!is_demo,
+      }).catch(() => {});
     }
 
     // 6. Auditoria.

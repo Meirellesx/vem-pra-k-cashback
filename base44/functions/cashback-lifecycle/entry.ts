@@ -1,6 +1,7 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import {
   getConnection, getProjectRef, getServiceRoleKey, runSql, pgInsert, insertAudit,
+  insertCashbackNotification,
 } from "../../shared/supabase.ts";
 
 const escape = (s: unknown) => String(s ?? "").replace(/'/g, "''");
@@ -56,6 +57,12 @@ export default async function (req: Request): Promise<Response> {
                pending_balance = GREATEST(COALESCE(pending_balance, 0) - ${Number(tx.amount) || 0}, 0)
          WHERE id = '${escape(tx.customer_id)}';`
       );
+      await insertCashbackNotification(key, ref, {
+        customer_id: tx.customer_id,
+        customer_name: tx.customer_name || "",
+        event: "liberado",
+        amount: Number(tx.amount) || 0,
+      }).catch(() => {});
       released++;
     }
 
@@ -95,6 +102,12 @@ export default async function (req: Request): Promise<Response> {
           notes: "Expiração automática (workflow agendado)",
           created_by_id: user.id,
         });
+        await insertCashbackNotification(key, ref, {
+          customer_id: tx.customer_id,
+          customer_name: tx.customer_name || "",
+          event: "expirado",
+          amount: remaining,
+        }).catch(() => {});
         expiredTotal += remaining;
       }
       expired++;

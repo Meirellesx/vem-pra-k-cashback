@@ -295,6 +295,62 @@ export async function pgDelete(key, ref, table, id) {
   return true;
 }
 
+// Formatação compartilhada de valores e datas (pt-BR).
+export function formatBRL(v) {
+  return "R$ " + Number(v || 0).toFixed(2).replace(".", ",");
+}
+export function formatDateBR(d) {
+  if (!d) return "";
+  try {
+    const [y, m, dd] = String(d).split("T")[0].split("-");
+    return `${dd}/${m}/${y}`;
+  } catch {
+    return String(d);
+  }
+}
+
+// Cria uma notificação in-app de evento de cashback (gerado/liberado/expirado)
+// para o cliente. O bot do WhatsApp apresenta os avisos não lidos quando o
+// cliente abre o chat — a plataforma não expõe envio outbound proativo.
+export async function insertCashbackNotification(key, ref, payload) {
+  const { customer_id, customer_name, event, amount, available_date, is_demo } = payload || {};
+  if (!customer_id || !event) return null;
+  let name = customer_name || "";
+  if (!name) {
+    const c = await pgGet(key, ref, "customers", customer_id).catch(() => null);
+    name = (c && c.name) || "Cliente";
+  }
+  const amt = Number(amount) || 0;
+  let title = "", message = "", type = "";
+  if (event === "gerado") {
+    type = "cashback_gerado";
+    title = "Você ganhou cashback! 🎉";
+    message = available_date
+      ? `Olá ${name}! Você ganhou ${formatBRL(amt)} de cashback. Ele libera para uso em ${formatDateBR(available_date)}. Obrigado por comprar com a gente!`
+      : `Olá ${name}! Você ganhou ${formatBRL(amt)} de cashback e já está disponível para usar na sua próxima compra. Aproveite!`;
+  } else if (event === "liberado") {
+    type = "cashback_liberado";
+    title = "Cashback liberado! ✅";
+    message = `Olá ${name}! Seu cashback de ${formatBRL(amt)} agora está disponível para uso. Pode usar na sua próxima compra!`;
+  } else if (event === "expirado") {
+    type = "cashback_expirado";
+    title = "Cashback expirado 💔";
+    message = `Olá ${name}! Um cashback de ${formatBRL(amt)} expirou e não está mais disponível. Fique atento às datas de validade!`;
+  } else {
+    return null;
+  }
+  return pgInsert(key, ref, "notifications", {
+    customer_id,
+    customer_name: name,
+    title,
+    message,
+    type,
+    is_read: false,
+    sent_date: new Date().toISOString(),
+    is_demo: !!is_demo,
+  });
+}
+
 // Insere um registro na tabela audit_logs (autoridade do serviço, ignora RLS).
 export async function insertAudit(key, ref, fields) {
   return pgInsert(key, ref, 'audit_logs', fields);
