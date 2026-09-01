@@ -7,7 +7,7 @@ import { isMasterAccount } from '@/lib/internalAuth';
 import {
   LayoutDashboard, Users, ShoppingCart, Settings, FileText, Shield,
   BarChart3, LogOut, Menu, X, ChevronRight, Wallet, UserCircle,
-  Bell, Package, UserCog, QrCode
+  Bell, Package, UserCog, QrCode, MessageCircle
 } from 'lucide-react';
 import MobileNav from '@/components/mobile/MobileNav';
 import MobileHeader from '@/components/mobile/MobileHeader';
@@ -45,6 +45,7 @@ const navByRole = {
     { path: '/auditoria', label: 'Auditoria', icon: Shield },
     { path: '/configuracoes', label: 'Configurações', icon: Settings },
     { path: '/categorias', label: 'Categorias', icon: Package },
+    { path: '/bot-whatsapp', label: 'Bot WhatsApp', icon: MessageCircle },
   ],
   manager: [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -53,6 +54,7 @@ const navByRole = {
     { path: '/cashback', label: 'Consultar Cashback', icon: Wallet },
     { path: '/relatorios', label: 'Relatórios', icon: BarChart3 },
     { path: '/auditoria', label: 'Auditoria', icon: Shield },
+    { path: '/bot-whatsapp', label: 'Bot WhatsApp', icon: MessageCircle },
   ],
   cashier: [
     { path: '/vendas', label: 'Registrar Venda', icon: ShoppingCart },

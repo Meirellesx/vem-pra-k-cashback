@@ -35,6 +35,7 @@ const Privacy = lazy(() => import('@/pages/Privacy'));
 const MeuCodigo = lazy(() => import('@/pages/MeuCodigo'));
 const InternalLogin = lazy(() => import('@/pages/InternalLogin'));
 const PublicCashbackLookup = lazy(() => import('@/pages/PublicCashbackLookup'));
+const BotWhatsApp = lazy(() => import('@/pages/BotWhatsApp'));
 
 const FullScreenLoader = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-[#0A0A0A]">
@@ -107,6 +108,7 @@ const AuthenticatedApp = () => {
             <Route path="/configuracoes" element={<Settings />} />
             <Route path="/categorias" element={<Categories />} />
             <Route path="/usuarios" element={<Users />} />
+            <Route path="/bot-whatsapp" element={<BotWhatsApp />} />
             {/* Customer routes */}
             <Route path="/minha-area" element={<CustomerArea />} />
             <Route path="/extrato" element={<StatementPage />} />
