@@ -3,8 +3,28 @@ import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatPhone, cpfToIdentifierCode, createAuditLog, exportToCSV } from '@/lib/cashbackUtils';
-import { Search, Plus, Download, User, Phone, Wallet, Clock, Edit2, X, Check } from 'lucide-react';
+import { Search, Plus, Download, User, Phone, Wallet, Clock, Edit2, X, Check, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import SuccessModal from '@/components/SuccessModal';
+
+// Normaliza para comparar: remove tudo que não é dígito/letra e caixa baixa.
+const norm = (v) => String(v || '').toLowerCase().replace(/[^0-9a-z]/g, '');
+
+// Busca clientes potencialmente duplicados por CPF, telefone ou e-mail.
+async function findDuplicateCustomers(form, existing) {
+  const cpfN = norm(form.cpf);
+  const phoneN = norm(form.phone);
+  const emailN = norm(form.email);
+  const pool = existing && existing.length ? existing : await Customer.list('-created_date', 500);
+  return (pool || [])
+    .filter(c => c.is_active !== false)
+    .filter(c => {
+      if (cpfN && norm(c.cpf) === cpfN && cpfN.length >= 11) return true;
+      if (phoneN && norm(c.phone) === phoneN && phoneN.length >= 10) return true;
+      if (emailN && c.email && norm(c.email) === emailN) return true;
+      return false;
+    });
+}
 
 function CustomerModal({ customer, onClose, onSave }) {
   const [form, setForm] = useState(customer || { name: '', phone: '', email: '', cpf: '', accepts_promotions: false });
@@ -14,7 +34,11 @@ function CustomerModal({ customer, onClose, onSave }) {
     if (!form.name || !form.phone || !form.cpf) return;
     if (!customer && !form.email) return;
     setSaving(true);
-    onSave(form);
+    try {
+      await onSave(form);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -82,6 +106,10 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const [editCustomer, setEditCustomer] = useState(null);
+  const [duplicateMatches, setDuplicateMatches] = useState(null);
+  const [pendingForm, setPendingForm] = useState(null);
+  const [duplicateChecking, setDuplicateChecking] = useState(false);
+  const [createdCustomer, setCreatedCustomer] = useState(null);
 
   useEffect(() => { loadCustomers(); }, []);
 
@@ -98,6 +126,37 @@ export default function Customers() {
      c.phone?.includes(search.replace(/\D/g, '')))
   );
 
+  // Cria o cliente de fato e exibe a tela de sucesso com os dados criados.
+  const doCreateCustomer = async (form) => {
+    try {
+      const code = cpfToIdentifierCode(form.cpf);
+      const created = await Customer.create({
+        ...form, identifier_code: code, available_balance: 0, pending_balance: 0,
+        total_cashback_earned: 0, total_cashback_used: 0, is_demo: false,
+      });
+      await createAuditLog(user, 'create_customer', 'Customer', created.id, `Novo cliente cadastrado: ${form.name}`, '', null, form);
+      let inviteSent = false;
+      if (form.email) {
+        try {
+          await base44.functions.invoke('invite-customer', { email: form.email, name: form.name });
+          inviteSent = true;
+        } catch (inviteErr) {
+          console.error('Invite error:', inviteErr);
+        }
+      }
+      // Fecha o formulário e mostra a confirmação visual de sucesso.
+      setModal(null);
+      setEditCustomer(null);
+      setDuplicateMatches(null);
+      setPendingForm(null);
+      setCreatedCustomer({ ...created, _inviteSent: inviteSent });
+      loadCustomers();
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Erro ao cadastrar', description: e.message || 'Não foi possível cadastrar o cliente.', variant: 'destructive' });
+    }
+  };
+
   const handleSave = async (form) => {
     try {
       if (editCustomer) {
@@ -112,29 +171,30 @@ export default function Customers() {
             console.error('Invite error:', inviteErr);
           }
         }
+        setModal(null);
+        setEditCustomer(null);
+        loadCustomers();
       } else {
-        const code = cpfToIdentifierCode(form.cpf);
-        await Customer.create({ ...form, identifier_code: code, available_balance: 0, pending_balance: 0, total_cashback_earned: 0, total_cashback_used: 0, is_demo: false });
-        await createAuditLog(user, 'create_customer', 'Customer', '', `Novo cliente cadastrado: ${form.name}`, '', null, form);
-        if (form.email) {
-          try {
-            await base44.functions.invoke('invite-customer', { email: form.email, name: form.name });
-            toast({ title: 'Cliente cadastrado', description: `Convite enviado para ${form.email}.` });
-          } catch (inviteErr) {
-            console.error('Invite error:', inviteErr);
-            toast({ title: 'Cliente cadastrado', description: 'E-mail pode já estar cadastrado — o cliente não receberá novo convite.', variant: 'destructive' });
-          }
+        // NOVO cliente: checa duplicidade (CPF/telefone/e-mail) antes de criar.
+        setDuplicateChecking(true);
+        const matches = await findDuplicateCustomers(form, customers);
+        setDuplicateChecking(false);
+        if (matches.length > 0) {
+          // Possível duplicata — pede confirmação explícita antes de cadastrar.
+          setDuplicateMatches(matches);
+          setPendingForm(form);
         } else {
-          toast({ title: 'Cliente cadastrado', description: 'Sem e-mail informado — convite não enviado.' });
+          await doCreateCustomer(form);
         }
       }
-      setModal(null);
-      setEditCustomer(null);
-      loadCustomers();
     } catch (e) {
       console.error(e);
+      setDuplicateChecking(false);
     }
   };
+
+  const closeSuccess = () => setCreatedCustomer(null);
+  const startAnother = () => { setCreatedCustomer(null); setEditCustomer(null); setModal('new'); };
 
   const handleExport = () => {
     exportToCSV(filtered, 'clientes.csv', [
@@ -248,6 +308,67 @@ export default function Customers() {
           onSave={handleSave}
         />
       )}
+
+      {/* Aviso de possível cliente duplicado — evita cadastro repetido. */}
+      {duplicateMatches && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
+              <AlertTriangle className="w-6 h-6 text-yellow-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Cliente possivelmente já cadastrado</h3>
+            <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+              Encontramos {duplicateMatches.length === 1 ? 'um cliente' : `${duplicateMatches.length} clientes`} com os mesmos dados (CPF, telefone ou e-mail). Confira abaixo antes de cadastrar novamente.
+            </p>
+            <div className="space-y-2 mb-5 max-h-48 overflow-y-auto">
+              {duplicateMatches.map(m => (
+                <div key={m.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-sm flex-shrink-0">
+                    {m.name?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 truncate">{m.name}</div>
+                    <div className="text-xs text-gray-500">{formatPhone(m.phone)}{m.email ? ` · ${m.email}` : ''}</div>
+                  </div>
+                  <button onClick={() => { setDuplicateMatches(null); setModal(null); setEditCustomer(null); }}
+                    className="text-xs font-semibold text-orange-600 hover:text-orange-700 px-2 py-1 rounded-lg hover:bg-orange-50">
+                    Ver
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => { setDuplicateMatches(null); setPendingForm(null); }}
+                className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button onClick={() => { const f = pendingForm; setDuplicateMatches(null); setPendingForm(null); doCreateCustomer(f); }}
+                className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl text-sm">
+                Cadastrar mesmo assim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmação visual de cliente criado — evita cadastro duplicado. */}
+      <SuccessModal
+        open={!!createdCustomer}
+        title="Cliente Cadastrado!"
+        subtitle="O cliente foi criado com sucesso no programa de cashback."
+        details={createdCustomer ? [
+          { label: 'Nome', value: createdCustomer.name },
+          { label: 'Telefone', value: formatPhone(createdCustomer.phone) },
+          { label: 'E-mail', value: createdCustomer.email || '—' },
+          { label: 'CPF', value: createdCustomer.cpf || '—' },
+          { label: 'Código de cashback', value: createdCustomer.identifier_code, mono: true },
+          { label: 'Convite', value: createdCustomer._inviteSent ? 'Enviado por e-mail ✅' : 'Não enviado' },
+        ] : []}
+        confirmLabel="Concluir"
+        secondaryLabel="Cadastrar outro"
+        onConfirm={closeSuccess}
+        onSecondary={startAnother}
+      />
     </div>
   );
 }
