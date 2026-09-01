@@ -8,6 +8,7 @@ import { formatCurrency, formatDate, formatPhone, getSettings, createAuditLog, g
 import { Search, Wallet, Clock, CheckCircle, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { getOperator } from '@/lib/internalAuth';
 import StatusBadge from '@/components/ui/StatusBadge';
+import RedemptionSuccessModal from '@/components/cashback/RedemptionSuccessModal';
 
 export default function CashbackLookup() {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ export default function CashbackLookup() {
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyError, setVerifyError] = useState('');
   const [myCustomer, setMyCustomer] = useState(null);
+  const [redeemResult, setRedeemResult] = useState(null);
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -255,6 +257,15 @@ export default function CashbackLookup() {
       } catch (emailErr) {
         console.error('Email notification error:', emailErr);
       }
+      const newBalanceFinal = Math.max(0, (customer.available_balance || 0) - amount);
+      setRedeemResult({
+        customerName: customer.name,
+        saleNumber: redeemSaleNumber,
+        saleTotal: saleTotal,
+        amount,
+        newBalance: newBalanceFinal,
+        emailSent,
+      });
       if (emailSent) {
         setSuccess(`✅ ${formatCurrency(amount)} de cashback utilizado com sucesso! E-mail enviado ao cliente.`);
       } else {
@@ -440,6 +451,12 @@ export default function CashbackLookup() {
               </div>
             )}
           </div>
+
+          <RedemptionSuccessModal
+            open={!!redeemResult}
+            result={redeemResult}
+            onClose={() => setRedeemResult(null)}
+          />
         </>
       )}
     </div>
