@@ -1,6 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 
+// Rotas que são peers raiz (abas do bottom nav): não mostram botão de voltar,
+// apenas o título da tela. Qualquer outra rota (ex.: /privacidade) mantém o voltar.
+const ROOT_PEER_ROUTES = new Set(['/minha-area', '/extrato', '/regras', '/meu-codigo']);
+
 const TITLES = {
   '/minha-area': 'Minha Área',
   '/extrato': 'Extrato',
@@ -13,7 +17,7 @@ export default function MobileHeader() {
   const location = useLocation();
   const navigate = useNavigate();
   const title = TITLES[location.pathname] || 'Vem Pra K Cashback';
-  const isHome = location.pathname === '/minha-area';
+  const isRootPeer = ROOT_PEER_ROUTES.has(location.pathname);
   const canGoBack = typeof window !== 'undefined' && window.history.state?.idx > 0;
   const handleBack = () => (canGoBack ? navigate(-1) : navigate('/minha-area'));
 
@@ -23,7 +27,7 @@ export default function MobileHeader() {
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="flex items-center h-14 px-1">
-        {isHome ? (
+        {isRootPeer ? (
           <div className="w-11" />
         ) : (
           <button

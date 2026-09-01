@@ -133,6 +133,15 @@ export default function Layout() {
     return () => cancelAnimationFrame(id);
   }, [location.pathname, isCustomer]);
 
+  // Re-seleção de aba ativa no bottom nav: rola o container principal ao topo
+  // de forma suave e descarta o cache de scroll da rota atual (reseta o estado
+  // de visualização aninhada/rota). Repassa o callback ao MobileNav.
+  const handleTabReselect = () => {
+    const main = mainRef.current;
+    if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
+    if (location.pathname) scrollCache.current[location.pathname] = 0;
+  };
+
   // Conta mestra sem login interno ativo → não tem acesso às telas internas.
   // (Guarda após os hooks para respeitar as rules-of-hooks.)
   if (isMaster && !internalUser) {
@@ -252,7 +261,7 @@ export default function Layout() {
       </div>
 
       {/* Mobile bottom navigation (customer roles only) */}
-      {isCustomer && <MobileNav />}
+      {isCustomer && <MobileNav onReselect={handleTabReselect} />}
     </div>
   );
 }

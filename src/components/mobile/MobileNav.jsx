@@ -8,7 +8,7 @@ const tabs = [
   { path: '/meu-codigo', label: 'Meu Código', icon: QrCode },
 ];
 
-export default function MobileNav() {
+export default function MobileNav({ onReselect }) {
   const location = useLocation();
   return (
     <nav
@@ -23,6 +23,14 @@ export default function MobileNav() {
             <Link
               key={tab.path}
               to={tab.path}
+              onClick={(e) => {
+                // Tapping the already-active tab: suppress navigation and ask
+                // the layout to scroll to top + reset nested view/route cache.
+                if (active && onReselect) {
+                  e.preventDefault();
+                  onReselect();
+                }
+              }}
               className={`flex-1 flex flex-col items-center gap-1 py-2.5 transition-colors ${
                 active ? 'text-orange-500' : 'text-gray-400'
               }`}
