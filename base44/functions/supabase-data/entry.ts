@@ -43,7 +43,7 @@ export default async function(req) {
     const ref = await getProjectRef(conn.accessToken);
 
     // ===== Operações administrativas (setup / saúde / migração) =====
-    if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateAll' || op === 'migrateCustomers' || op === 'migrateInternalAccounts' || op === 'migrateSettings' || op === 'migrateCategories' || op === 'migrateAuditLogs' || op === 'migrateStaffInvitations' || op === 'resetCustomerBalances') {
+    if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateAll' || op === 'migrateCustomers' || op === 'migrateInternalAccounts' || op === 'migrateSettings' || op === 'migrateCategories' || op === 'migrateAuditLogs' || op === 'migrateStaffInvitations' || op === 'resetCustomerBalances' || op === 'cleanupTestWhatsapp') {
       if (user.role !== 'admin') {
         return Response.json({ error: 'Forbidden — apenas administradores.' }, { status: 403 });
       }
@@ -60,6 +60,60 @@ export default async function(req) {
         await runSql(conn.accessToken, ref,
           'UPDATE customers SET available_balance = 0, pending_balance = 0, total_cashback_earned = 0, total_cashback_used = 0;');
         return Response.json({ success: true });
+      }
+      if (op === 'cleanupTestWhatsapp') {
+        const esc = (s) => String(s ?? '').replace(/'/g, "''");
+        const key = await getServiceRoleKey(conn.accessToken, ref);
+        const counts = { customers: 0, sales: 0, cashback_transactions: 0, cashback_redemptions: 0, notifications: 0, consent_records: 0, cashback_whatsapp: 0 };
+
+        // Apaga registros de uma tabela com espelho nativo (mirrorDelete via legacy_id).
+        async function purgeMirrored(table, whereSql) {
+          const rows = await runSql(conn.accessToken, ref, `SELECT id FROM ${table} WHERE ${whereSql};`).catch(() => []);
+          for (const r of rows || []) await mirrorDelete(base44, table, r.id);
+          await runSql(conn.accessToken, ref, `DELETE FROM ${table} WHERE ${whereSql};`).catch(() => {});
+          return (rows || []).length;
+        }
+
+        // 1. Localiza APENAS os clientes de teste da bateria de validação:
+        //    nome padronizado + CPF fictício (prefixo 111/222/333). Nenhum cliente real é afetado.
+        const testCustomers = await runSql(conn.accessToken, ref,
+          "SELECT id, name FROM customers WHERE name LIKE 'Cliente Teste WP%' AND (cpf LIKE '111%' OR cpf LIKE '222%' OR cpf LIKE '333%');");
+
+        for (const c of testCustomers || []) {
+          const cid = esc(c.id);
+          const cw = await runSql(conn.accessToken, ref,
+            `DELETE FROM cashback_whatsapp WHERE cliente_id = '${cid}' RETURNING id;`).catch(() => []);
+          counts.cashback_whatsapp += (cw || []).length;
+          counts.consent_records += await purgeMirrored('consent_records', `customer_id = '${cid}'`);
+          counts.notifications += await purgeMirrored('notifications', `customer_id = '${cid}'`);
+          counts.cashback_transactions += await purgeMirrored('cashback_transactions', `customer_id = '${cid}'`);
+          counts.cashback_redemptions += await purgeMirrored('cashback_redemptions', `customer_id = '${cid}'`);
+          counts.sales += await purgeMirrored('sales', `customer_id = '${cid}' OR sale_number LIKE 'TSTWP-%'`);
+          await mirrorDelete(base44, 'customers', c.id);
+          await runSql(conn.accessToken, ref, `DELETE FROM customers WHERE id = '${cid}';`).catch(() => {});
+          counts.customers++;
+        }
+
+        // 2. Registros órfãos de teste (vendas ou registros de WhatsApp sem cliente vinculado).
+        counts.sales += await purgeMirrored('sales', `sale_number LIKE 'TSTWP-%'`);
+        const orphanCw = await runSql(conn.accessToken, ref,
+          "DELETE FROM cashback_whatsapp WHERE nome_cliente LIKE 'Cliente Teste WP%' RETURNING id;").catch(() => []);
+        counts.cashback_whatsapp += (orphanCw || []).length;
+
+        // 3. Auditoria da limpeza (histórico de auditoria é preservado).
+        const audit = await pgInsert(key, ref, 'audit_logs', {
+          user_id: user.id,
+          user_name: user.full_name || user.email || 'Sistema',
+          user_role: user.role,
+          action: 'cleanup_test_data',
+          entity_type: 'Customer',
+          entity_id: '',
+          description: `Limpeza de dados de teste: ${counts.customers} cliente(s), ${counts.sales} venda(s), ${counts.cashback_transactions} transação(ões), ${counts.cashback_redemptions} resgate(s), ${counts.notifications} notificação(ões), ${counts.consent_records} consentimento(s), ${counts.cashback_whatsapp} registro(s) de WhatsApp.`,
+          is_demo: false,
+          created_by_id: user.id,
+        });
+        await mirrorRow(base44, 'audit_logs', audit);
+        return Response.json({ success: true, counts });
       }
       // ===== Migração genérica: copia registros de uma entidade Base44 para a
       //       tabela correspondente no Supabase (idempotente por legacy_id). =====

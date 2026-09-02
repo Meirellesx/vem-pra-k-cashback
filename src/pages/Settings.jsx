@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from '@/lib/AuthContext';
 import { createAuditLog } from '@/lib/cashbackUtils';
 import CashbackSettings from '@/lib/cashbackSettingsDb';
+import PilotModeCard from '@/components/settings/PilotModeCard';
 import { Save, Settings as SettingsIcon, Info } from 'lucide-react';
 
 export default function Settings() {
@@ -15,6 +16,8 @@ export default function Settings() {
     balance_validity_days: 365,
     is_active: true,
     program_name: 'Vem Pra K Cashback',
+    piloto_ativo: false,
+    piloto_telefones: [],
   });
   const [settingsId, setSettingsId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -140,6 +143,14 @@ export default function Settings() {
           </div>
         </Field>
       </div>
+
+      <PilotModeCard
+        pilotoAtivo={!!form.piloto_ativo}
+        telefones={form.piloto_telefones || []}
+        onToggle={() => setForm({ ...form, piloto_ativo: !form.piloto_ativo })}
+        onAdd={(p) => setForm({ ...form, piloto_telefones: [...(form.piloto_telefones || []), p] })}
+        onRemove={(p) => setForm({ ...form, piloto_telefones: (form.piloto_telefones || []).filter(t => t !== p) })}
+      />
 
       {/* Preview */}
       <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 mb-5 text-sm">

@@ -37,6 +37,19 @@
       "title": "Nome do programa",
       "default": "Vem Pra K Cashback"
     },
+    "piloto_ativo": {
+      "type": "boolean",
+      "title": "Modo piloto de envio ativo",
+      "default": false
+    },
+    "piloto_telefones": {
+      "type": "array",
+      "title": "Telefones autorizados no modo piloto",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
     "terms_text": {
       "type": "string",
       "title": "Texto dos termos e condi\u00e7\u00f5es"
