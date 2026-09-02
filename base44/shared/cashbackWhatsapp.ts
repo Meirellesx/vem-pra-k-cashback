@@ -1,10 +1,51 @@
 // Tabela operacional cashback_whatsapp — alimenta a futura integração n8n/Avisa.
 // O Base44 apenas cria e mantém os registros; NENHUM envio de mensagem acontece aqui.
 
-import { runSql, pgGet, pgInsert, ensureWhatsappSetup } from "./supabase.ts";
+import { runSql, pgGet, pgInsert, pgList, ensureWhatsappSetup } from "./supabase.ts";
 
 const esc = (s) => String(s ?? "").replace(/'/g, "''");
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
+// ===== Modo piloto: elegibilidade de envio materializada no próprio registro =====
+// O n8n consulta apenas status_telefone = 'ativo'; não precisa saber que o piloto existe.
+
+// Lê a configuração atual do piloto em cashback_settings.
+export async function getPilotConfig(key, ref) {
+  const rows = await pgList(key, ref, "cashback_settings", { limit: 1 }).catch(() => []);
+  const s = rows && rows[0];
+  return {
+    piloto_ativo: !!(s && s.piloto_ativo),
+    piloto_telefones: ((s && s.piloto_telefones) || []).map((t) => String(t || "").replace(/\D/g, "")).filter(Boolean),
+  };
+}
+
+// Recalcula status_telefone dos registros ativos conforme o piloto:
+// - piloto ligado: telefone fora da lista → 'bloqueado_piloto'; dentro da lista → 'ativo'
+// - piloto desligado: todos voltam a 'ativo'
+export async function recomputePilotStatus(accessToken, key, ref) {
+  const { piloto_ativo, piloto_telefones } = await getPilotConfig(key, ref);
+  const activeSql = "status_cashback IN ('disponivel','parcial')";
+  const phoneCol = "regexp_replace(COALESCE(telefone_whatsapp, ''), '\\D', '', 'g')";
+  if (!piloto_ativo) {
+    const r = await runSql(accessToken, ref,
+      `UPDATE cashback_whatsapp SET status_telefone = 'ativo'
+       WHERE status_telefone = 'bloqueado_piloto' AND ${activeSql} RETURNING id;`
+    ).catch(() => []);
+    return { piloto_ativo: false, bloqueados: 0, ativados: (r || []).length };
+  }
+  const list = piloto_telefones.map(esc).join(", ");
+  const inList = list ? `${phoneCol} IN (${list})` : "false";
+  const notInList = list ? `${phoneCol} NOT IN (${list})` : "true";
+  const blocked = await runSql(accessToken, ref,
+    `UPDATE cashback_whatsapp SET status_telefone = 'bloqueado_piloto'
+     WHERE ${activeSql} AND status_telefone <> 'bloqueado_piloto' AND ${notInList} RETURNING id;`
+  ).catch(() => []);
+  const restored = await runSql(accessToken, ref,
+    `UPDATE cashback_whatsapp SET status_telefone = 'ativo'
+     WHERE ${activeSql} AND status_telefone <> 'ativo' AND ${inList} RETURNING id;`
+  ).catch(() => []);
+  return { piloto_ativo: true, bloqueados: (blocked || []).length, ativados: (restored || []).length };
+}
 
 // Cria um NOVO registro quando um cashback é gerado em uma compra.
 // Copia os dados atuais do cliente (telefone/consentimentos) e nunca reutiliza
@@ -19,6 +60,13 @@ export async function insertWhatsappOnCashbackGenerated(accessToken, key, ref, p
 
   const customer = await pgGet(key, ref, "customers", customer_id).catch(() => null);
   const now = new Date().toISOString();
+
+  // Elegibilidade de envio já decidida na gravação (modo piloto).
+  const { piloto_ativo, piloto_telefones } = await getPilotConfig(key, ref).catch(() => ({
+    piloto_ativo: false, piloto_telefones: [],
+  }));
+  const phoneDigits = String((customer && customer.phone) || "").replace(/\D/g, "");
+  const statusTelefone = !piloto_ativo || piloto_telefones.includes(phoneDigits) ? "ativo" : "bloqueado_piloto";
 
   const row = await pgInsert(key, ref, "cashback_whatsapp", {
     cliente_id: customer_id,
@@ -45,7 +93,7 @@ export async function insertWhatsappOnCashbackGenerated(accessToken, key, ref, p
     aviso_expiracao_3d_enviado: false,
     aviso_expiracao_1d_enviado: false,
     tentativas_envio: 0,
-    status_telefone: "ativo",
+    status_telefone: statusTelefone,
     is_demo: !!is_demo,
   });
 

@@ -6,7 +6,7 @@ import {
   getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql,
 } from '../../shared/supabase.ts';
 import { mirrorRow, mirrorDelete } from '../../shared/nativeMirror.ts';
-import { syncConsentsToWhatsapp, cancelWhatsappBySale } from '../../shared/cashbackWhatsapp.ts';
+import { syncConsentsToWhatsapp, cancelWhatsappBySale, recomputePilotStatus } from '../../shared/cashbackWhatsapp.ts';
 
 // Tabelas permitidas para CRUD genérico via esta função.
 // Todas as entidades do app agora vivem no Supabase; o Base44 funciona apenas como backup.
@@ -302,6 +302,13 @@ export default async function(req) {
       const row = await pgUpdate(key, ref, table, body.id, data);
       await mirrorRow(base44, table, row);
 
+      // Modo piloto alterado no painel → recalcula a elegibilidade de envio
+      // (status_telefone) de todos os registros ativos na tabela do WhatsApp.
+      let pilotoRecalc = null;
+      if (table === 'cashback_settings' && (data.piloto_ativo !== undefined || data.piloto_telefones !== undefined)) {
+        pilotoRecalc = await recomputePilotStatus(conn.accessToken, key, ref).catch(() => null);
+      }
+
       if (table === 'customers' && row) {
         const hasConsentFields =
           data.accepts_promotions !== undefined || data.promocoes_opt_in !== undefined ||
@@ -347,7 +354,7 @@ export default async function(req) {
         // Cancelamento/reversão de venda: marca o registro operacional correspondente.
         await cancelWhatsappBySale(conn.accessToken, ref, body.id).catch(() => {});
       }
-      return Response.json({ data: row });
+      return Response.json({ data: row, ...(pilotoRecalc ? { piloto_recalc: pilotoRecalc } : {}) });
     }
     if (op === 'delete') {
       await pgDelete(key, ref, table, body.id);
