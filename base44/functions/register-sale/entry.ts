@@ -4,6 +4,7 @@ import {
   insertCashbackNotification,
 } from '../../shared/supabase.ts';
 import { mirrorRow, patchNativeByLegacyId, mirrorCustomerFromSupabase } from '../../shared/nativeMirror.ts';
+import { insertWhatsappOnCashbackGenerated } from '../../shared/cashbackWhatsapp.ts';
 
 // Registra uma venda + geração de cashback + atualização de saldo + auditoria
 // em uma ÚNICA invocação, resolvendo a conexão Supabase uma vez e reutilizando a
@@ -99,6 +100,19 @@ export default async function (req) {
       // 5. Vincula a transação à venda.
       await pgUpdate(key, ref, 'sales', sale.id, { cashback_transaction_id: txId });
       await patchNativeByLegacyId(base44, 'sales', sale.id, { cashback_transaction_id: txId, cashback_generated: true });
+
+      // 5.5. Alimenta a tabela operacional cashback_whatsapp (futura integração
+      //      n8n/Avisa). Nenhum envio de mensagem nesta etapa.
+      await insertWhatsappOnCashbackGenerated(conn.accessToken, key, ref, {
+        customer_id,
+        customer_name: customer_name || '',
+        sale_id: sale.id,
+        cashback_id_origem: txId,
+        valor_compra: num(total_amount),
+        valor_cashback_gerado: cbAmount,
+        expiry_date: expiry_date || null,
+        is_demo: !!is_demo,
+      }).catch((e) => { console.error('cashback_whatsapp insert error:', e.message); });
 
       // 6. Cria a notificação in-app de cashback gerado (o bot apresenta ao cliente).
       const notif = await insertCashbackNotification(key, ref, {

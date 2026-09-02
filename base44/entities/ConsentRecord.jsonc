@@ -16,7 +16,8 @@
       "enum": [
         "termos_uso",
         "politica_privacidade",
-        "comunicacoes_promocionais"
+        "comunicacoes_promocionais",
+        "comunicacoes_cashback"
       ]
     },
     "accepted": {

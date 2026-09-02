@@ -4,6 +4,7 @@ import {
   insertCashbackNotification,
 } from "../../shared/supabase.ts";
 import { mirrorRow, patchNativeByLegacyId, mirrorCustomerFromSupabase } from "../../shared/nativeMirror.ts";
+import { expireWhatsappByCashback } from "../../shared/cashbackWhatsapp.ts";
 
 const escape = (s: unknown) => String(s ?? "").replace(/'/g, "''");
 
@@ -87,6 +88,8 @@ export default async function (req: Request): Promise<Response> {
         `UPDATE cashback_transactions SET status = 'expirado' WHERE id = '${escape(tx.id)}';`
       );
       await patchNativeByLegacyId(base44, "cashback_transactions", tx.id, { status: "expirado" });
+      // Espelha a expiração na tabela operacional cashback_whatsapp (n8n).
+      await expireWhatsappByCashback(mgmtToken, ref, tx.id).catch(() => {});
       if (remaining > 0) {
         await runSql(
           mgmtToken, ref,

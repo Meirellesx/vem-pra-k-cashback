@@ -1,6 +1,7 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
 import { getConnection, getProjectRef, getServiceRoleKey, pgGet, insertAudit, insertCashbackNotification } from "../../shared/supabase.ts";
 import { mirrorRow } from "../../shared/nativeMirror.ts";
+import { applyWhatsappRedemption } from "../../shared/cashbackWhatsapp.ts";
 
 export default async function (req: Request): Promise<Response> {
   try {
@@ -17,7 +18,7 @@ export default async function (req: Request): Promise<Response> {
       return Response.json({ success: false, error: "Acesso restrito a operadores e administradores" }, { status: 403 });
     }
 
-    const { customer_id, customer_name, amount, sale_number, sale_total, new_balance } = await req.json();
+    const { customer_id, customer_name, amount, sale_number, sale_total, new_balance, consumed_transactions } = await req.json();
 
     if (!customer_id) {
       return Response.json({ success: false, error: "customer_id é obrigatório" }, { status: 400 });
@@ -27,6 +28,15 @@ export default async function (req: Request): Promise<Response> {
     const conn = await getConnection(base44);
     const ref = await getProjectRef(conn.accessToken);
     const key = await getServiceRoleKey(conn.accessToken, ref);
+    // Espelha o resgate na tabela operacional cashback_whatsapp (futura integração
+    // n8n/Avisa): consumo, saldo e status por transação de origem. Nenhum envio aqui.
+    let whatsappUpdated = 0;
+    try {
+      whatsappUpdated = await applyWhatsappRedemption(conn.accessToken, ref, consumed_transactions);
+    } catch (e) {
+      console.error("cashback_whatsapp update error:", e.message);
+    }
+
     const customer = await pgGet(key, ref, "customers", customer_id);
     // Cria a notificação in-app de cashback utilizado (o bot apresenta ao cliente).
     const notif = await insertCashbackNotification(key, ref, {
@@ -81,7 +91,7 @@ Obrigado por participar do Vem Pra K Cashback!`,
     });
     await mirrorRow(base44, "audit_logs", audit);
 
-    return Response.json({ success: true, email });
+    return Response.json({ success: true, email, whatsapp_updated: whatsappUpdated });
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }

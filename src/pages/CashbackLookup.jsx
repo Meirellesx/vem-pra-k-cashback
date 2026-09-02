@@ -142,7 +142,7 @@ export default function CashbackLookup() {
       if (avail <= 0) continue;
       const consume = Math.min(previewRemaining, avail);
       const newUsed = (Number(tx.used_amount) || 0) + consume;
-      optimisticUpdates.push({ id: tx.id, newUsed, fullyUsed: newUsed >= (Number(tx.amount) || 0) });
+      optimisticUpdates.push({ id: tx.id, consume, newUsed, fullyUsed: newUsed >= (Number(tx.amount) || 0) });
       previewRemaining -= consume;
     }
 
@@ -252,6 +252,8 @@ export default function CashbackLookup() {
           sale_number: redeemSaleNumber,
           sale_total: saleTotal,
           new_balance: newBalanceForEmail,
+          // Consumo por transação de origem (FIFO) — espelha na tabela cashback_whatsapp.
+          consumed_transactions: optimisticUpdates.map(u => ({ cashback_id_origem: u.id, consumed: u.consume })),
         });
         emailSent = res?.data?.success === true;
       } catch (emailErr) {

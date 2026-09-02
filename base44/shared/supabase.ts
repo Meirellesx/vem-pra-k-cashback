@@ -64,6 +64,11 @@ export const TABLES = {
     'name text', 'phone text', 'email text', 'cpf text', 'identifier_code text',
     'legacy_id text',
     'accepts_promotions boolean default false',
+    'promocoes_opt_in boolean default false',
+    'cashback_comunicacao_opt_in boolean default false',
+    'data_consentimento timestamptz',
+    'origem_consentimento text',
+    'opt_out_em timestamptz',
     'available_balance numeric default 0', 'pending_balance numeric default 0',
     'total_cashback_earned numeric default 0', 'total_cashback_used numeric default 0',
     'is_demo boolean default false', 'is_active boolean default true', 'notes text',
@@ -130,6 +135,29 @@ export const TABLES = {
     'status text default \'pending\'', 'invited_by text', 'invited_at timestamptz',
     'accepted_at timestamptz', 'legacy_id text',
   ].join(', '),
+  // Tabela operacional para a futura integração n8n/Avisa: um registro por
+  // cashback gerado (o mesmo cliente acumula vários registros ao longo do tempo).
+  cashback_whatsapp: [
+    'cliente_id text', 'nome_cliente text', 'telefone_whatsapp text',
+    'cashback_comunicacao_opt_in boolean default false',
+    'promocoes_opt_in boolean default false',
+    'data_consentimento timestamptz', 'origem_consentimento text',
+    'compra_id text', 'cashback_id_origem text',
+    'valor_compra numeric(12,2)', 'valor_cashback_gerado numeric(12,2)',
+    'valor_cashback_utilizado numeric(12,2) default 0', 'saldo_cashback numeric(12,2)',
+    'data_geracao_cashback timestamptz', 'data_expiracao_cashback timestamptz',
+    'status_cashback text default \'disponivel\'',
+    'ultima_compra_em timestamptz', 'ultima_mensagem_tipo text', 'ultima_mensagem_em timestamptz',
+    'proxima_acao_tipo text default \'enviar_cashback\'', 'proxima_acao_em timestamptz',
+    'mensagem_inicial_enviada boolean default false', 'lembrete_7_dias_enviado boolean default false',
+    'aviso_expiracao_7d_enviado boolean default false', 'aviso_expiracao_3d_enviado boolean default false',
+    'aviso_expiracao_1d_enviado boolean default false',
+    'opt_out_em timestamptz', 'status_telefone text default \'ativo\'',
+    'ultima_tentativa_envio_em timestamptz', 'tentativas_envio integer default 0',
+    'ultimo_erro_envio text',
+    'criado_em timestamptz default now()', 'atualizado_em timestamptz default now()',
+    'is_demo boolean default false',
+  ].join(', '),
 };
 
 // Colunas adicionadas a tabelas já existentes (executa ALTER ADD COLUMN IF NOT EXISTS).
@@ -157,6 +185,8 @@ export async function ensureTables(accessToken, ref) {
     await runSql(accessToken, ref, sql);
     created.push(name);
   }
+  // Consentimentos separados + tabela operacional cashback_whatsapp (n8n/Avisa).
+  await ensureWhatsappSetup(accessToken, ref);
   for (const sql of COLUMN_MIGRATIONS) {
     await runSql(accessToken, ref, sql).catch(() => {});
   }
@@ -173,6 +203,64 @@ export async function ensureTables(accessToken, ref) {
     `).catch(() => {});
   }
   return created;
+}
+
+// ===== Integração futura n8n/Avisa: consentimentos + tabela operacional =====
+
+// Setup idempotente da preparação WhatsApp: colunas de consentimento em
+// customers (com migração única do aceite antigo de promoções) e tabela
+// operacional cashback_whatsapp (índices, unicidade e atualização automática).
+let whatsappSetupDone = false;
+
+export async function ensureWhatsappSetup(accessToken, ref) {
+  if (whatsappSetupDone) return;
+  // 1. Colunas de consentimento em customers.
+  const cols = await runSql(accessToken, ref,
+    "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='customers' AND column_name IN ('promocoes_opt_in','cashback_comunicacao_opt_in');");
+  const existing = new Set((cols || []).map((r) => r.column_name));
+  for (const sql of [
+    'ALTER TABLE customers ADD COLUMN IF NOT EXISTS promocoes_opt_in boolean default false;',
+    'ALTER TABLE customers ADD COLUMN IF NOT EXISTS cashback_comunicacao_opt_in boolean default false;',
+    'ALTER TABLE customers ADD COLUMN IF NOT EXISTS data_consentimento timestamptz;',
+    'ALTER TABLE customers ADD COLUMN IF NOT EXISTS origem_consentimento text;',
+    'ALTER TABLE customers ADD COLUMN IF NOT EXISTS opt_out_em timestamptz;',
+  ]) {
+    await runSql(accessToken, ref, sql).catch(() => {});
+  }
+  // Migração única: quem já aceitava promoções passa a aceitar promoções E
+  // mensagens de cashback (decisão do builder). Roda apenas na primeira criação
+  // da coluna — nunca sobrescreve opt-ins definidos depois.
+  if (!existing.has('promocoes_opt_in')) {
+    await runSql(accessToken, ref,
+      "UPDATE customers SET promocoes_opt_in = COALESCE(accepts_promotions, false), cashback_comunicacao_opt_in = COALESCE(accepts_promotions, false) WHERE COALESCE(accepts_promotions, false) = true;"
+    ).catch(() => {});
+  }
+  // 2. Tabela operacional (um registro por cashback gerado).
+  await runSql(accessToken, ref,
+    `CREATE TABLE IF NOT EXISTS cashback_whatsapp (${COMMON}, ${TABLES.cashback_whatsapp});`);
+  // 3. Proteção contra duplicidade: o mesmo cashback_id_origem nunca repete.
+  await runSql(accessToken, ref,
+    'CREATE UNIQUE INDEX IF NOT EXISTS uniq_cw_cashback_id_origem ON cashback_whatsapp(cashback_id_origem);').catch(() => {});
+  // 4. Índices de consulta do n8n.
+  for (const col of [
+    'cliente_id', 'telefone_whatsapp', 'status_cashback', 'proxima_acao_tipo',
+    'proxima_acao_em', 'data_expiracao_cashback', 'cashback_comunicacao_opt_in',
+    'promocoes_opt_in', 'mensagem_inicial_enviada', 'lembrete_7_dias_enviado',
+    'status_telefone',
+  ]) {
+    await runSql(accessToken, ref,
+      `CREATE INDEX IF NOT EXISTS idx_cw_${col} ON cashback_whatsapp(${col});`).catch(() => {});
+  }
+  // 5. atualizado_em automático em toda modificação.
+  await runSql(accessToken, ref, `
+    CREATE OR REPLACE FUNCTION set_atualizado_em() RETURNS trigger AS $$
+    BEGIN NEW.atualizado_em = now(); RETURN NEW; END;
+    $$ LANGUAGE plpgsql;
+    DROP TRIGGER IF EXISTS set_atualizado_em ON cashback_whatsapp;
+    CREATE TRIGGER set_atualizado_em BEFORE UPDATE ON cashback_whatsapp
+      FOR EACH ROW EXECUTE FUNCTION set_atualizado_em();
+  `).catch(() => {});
+  whatsappSetupDone = true;
 }
 
 // Lista as tabelas existentes no schema public.

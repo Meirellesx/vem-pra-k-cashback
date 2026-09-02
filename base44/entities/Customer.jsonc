@@ -27,6 +27,30 @@
       "title": "Aceita comunica\u00e7\u00f5es promocionais",
       "default": false
     },
+    "promocoes_opt_in": {
+      "type": "boolean",
+      "title": "Aceita comunica\u00e7\u00f5es promocionais (n8n/WhatsApp)",
+      "default": false
+    },
+    "cashback_comunicacao_opt_in": {
+      "type": "boolean",
+      "title": "Aceita mensagens de cashback pelo WhatsApp",
+      "default": false
+    },
+    "data_consentimento": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data do consentimento"
+    },
+    "origem_consentimento": {
+      "type": "string",
+      "title": "Origem do consentimento"
+    },
+    "opt_out_em": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data de revoga\u00e7\u00e3o (opt-out)"
+    },
     "available_balance": {
       "type": "number",
       "title": "Saldo dispon\u00edvel",

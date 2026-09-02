@@ -27,7 +27,7 @@ async function findDuplicateCustomers(form, existing) {
 }
 
 function CustomerModal({ customer, onClose, onSave }) {
-  const [form, setForm] = useState(customer || { name: '', phone: '', email: '', cpf: '', accepts_promotions: false });
+  const [form, setForm] = useState(customer || { name: '', phone: '', email: '', cpf: '', accepts_promotions: false, cashback_comunicacao_opt_in: false });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -85,6 +85,12 @@ function CustomerModal({ customer, onClose, onSave }) {
               className="w-4 h-4 accent-orange-500" />
             <span className="text-sm text-gray-700">Aceita comunicações promocionais</span>
           </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={form.cashback_comunicacao_opt_in || false} onChange={e => setForm({...form, cashback_comunicacao_opt_in: e.target.checked})}
+              className="w-4 h-4 accent-orange-500" />
+            <span className="text-sm text-gray-700">Aceita receber atualizações sobre seu cashback pelo WhatsApp</span>
+          </label>
+          <p className="text-xs text-gray-400">Os dois aceites são independentes: promoções (ofertas e campanhas) e mensagens de cashback (saldo, vencimento e uso).</p>
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancelar</button>

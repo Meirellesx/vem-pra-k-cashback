@@ -6,6 +6,7 @@ import {
   getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql,
 } from '../../shared/supabase.ts';
 import { mirrorRow, mirrorDelete } from '../../shared/nativeMirror.ts';
+import { syncConsentsToWhatsapp, cancelWhatsappBySale } from '../../shared/cashbackWhatsapp.ts';
 
 // Tabelas permitidas para CRUD genérico via esta função.
 // Todas as entidades do app agora vivem no Supabase; o Base44 funciona apenas como backup.
@@ -14,6 +15,20 @@ const CRUD_TABLES = new Set([
   'internal_accounts', 'cashback_settings', 'product_categories',
   'audit_logs', 'staff_invitations', 'notifications', 'consent_records',
 ]);
+
+// Registra em consent_records a alteração de um consentimento (origem: painel).
+async function recordConsent(key, ref, customerId, customerName, consentType, accepted) {
+  const row = await pgInsert(key, ref, 'consent_records', {
+    customer_id: customerId,
+    customer_name: customerName || '',
+    consent_type: consentType,
+    accepted: !!accepted,
+    consent_date: new Date().toISOString(),
+    ip_address: '',
+    version: 'painel',
+  }).catch(() => null);
+  return row;
+}
 
 export default async function(req) {
   try {
@@ -199,13 +214,85 @@ export default async function(req) {
     if (op === 'create') {
       const data = { ...body.data };
       if (!data.created_by_id) data.created_by_id = user.id;
+      if (table === 'customers') {
+        // Consentimentos: promocoes_opt_in acompanha o campo legado accepts_promotions;
+        // cashback_comunicacao_opt_in é independente (default false).
+        if (data.promocoes_opt_in === undefined) data.promocoes_opt_in = !!data.accepts_promotions;
+        if (data.cashback_comunicacao_opt_in === undefined) data.cashback_comunicacao_opt_in = false;
+        if ((data.promocoes_opt_in || data.cashback_comunicacao_opt_in) && !data.data_consentimento) {
+          data.data_consentimento = new Date().toISOString();
+          data.origem_consentimento = data.origem_consentimento || 'painel';
+        }
+      }
       const row = await pgInsert(key, ref, table, data);
       await mirrorRow(base44, table, row);
+      if (table === 'customers') {
+        // Registro inicial dos dois consentimentos para auditoria (LGPD).
+        const cr1 = await recordConsent(key, ref, row.id, row.name, 'comunicacoes_promocionais', row.promocoes_opt_in);
+        if (cr1) await mirrorRow(base44, 'consent_records', cr1);
+        const cr2 = await recordConsent(key, ref, row.id, row.name, 'comunicacoes_cashback', row.cashback_comunicacao_opt_in);
+        if (cr2) await mirrorRow(base44, 'consent_records', cr2);
+      }
       return Response.json({ data: row });
     }
     if (op === 'update') {
-      const row = await pgUpdate(key, ref, table, body.id, body.data);
+      const data = { ...body.data };
+      if (table === 'customers' && data.accepts_promotions !== undefined && data.promocoes_opt_in === undefined) {
+        // Mantém promocoes_opt_in em sincronia com o campo legado do formulário.
+        data.promocoes_opt_in = !!data.accepts_promotions;
+      }
+      // Estado anterior dos consentimentos (para registrar alterações/opt-out).
+      const prev = table === 'customers'
+        ? await pgGet(key, ref, 'customers', body.id).catch(() => null)
+        : null;
+      const row = await pgUpdate(key, ref, table, body.id, data);
       await mirrorRow(base44, table, row);
+
+      if (table === 'customers' && row) {
+        const hasConsentFields =
+          data.accepts_promotions !== undefined || data.promocoes_opt_in !== undefined ||
+          data.cashback_comunicacao_opt_in !== undefined;
+        if (hasConsentFields) {
+          const prevPromo = prev ? !!(prev.promocoes_opt_in ?? prev.accepts_promotions) : !!row.promocoes_opt_in;
+          const prevCash = prev ? !!prev.cashback_comunicacao_opt_in : !!row.cashback_comunicacao_opt_in;
+          const newPromo = !!row.promocoes_opt_in;
+          const newCash = !!row.cashback_comunicacao_opt_in;
+
+          if (newPromo !== prevPromo) {
+            const cr = await recordConsent(key, ref, row.id, row.name, 'comunicacoes_promocionais', newPromo);
+            if (cr) await mirrorRow(base44, 'consent_records', cr);
+          }
+          if (newCash !== prevCash) {
+            const cr = await recordConsent(key, ref, row.id, row.name, 'comunicacoes_cashback', newCash);
+            if (cr) await mirrorRow(base44, 'consent_records', cr);
+          }
+
+          const patch = {};
+          if ((prevPromo && !newPromo) || (prevCash && !newCash)) {
+            // Retirada de autorização → registra o opt-out.
+            patch.opt_out_em = new Date().toISOString();
+          } else if ((!prevPromo && newPromo) || (!prevCash && newCash)) {
+            // Nova autorização → data/origem do consentimento; limpa opt-out anterior.
+            patch.opt_out_em = null;
+            patch.data_consentimento = new Date().toISOString();
+            patch.origem_consentimento = 'painel';
+          }
+          let finalRow = row;
+          if (Object.keys(patch).length > 0) {
+            finalRow = await pgUpdate(key, ref, 'customers', row.id, patch);
+            await mirrorRow(base44, 'customers', finalRow);
+          }
+          // Propaga a preferência atual para os registros ATIVOS em cashback_whatsapp
+          // (histórico antigo preservado) — consulta futura do n8n.
+          await syncConsentsToWhatsapp(conn.accessToken, key, ref, row.id).catch(() => {});
+          return Response.json({ data: finalRow });
+        }
+      }
+
+      if (table === 'sales' && data.status && ['cancelada', 'devolvida'].includes(data.status)) {
+        // Cancelamento/reversão de venda: marca o registro operacional correspondente.
+        await cancelWhatsappBySale(conn.accessToken, ref, body.id).catch(() => {});
+      }
       return Response.json({ data: row });
     }
     if (op === 'delete') {
