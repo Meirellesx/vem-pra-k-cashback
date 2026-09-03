@@ -1,6 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import {
-  getConnection, getProjectRef, getServiceRoleKey, pgGet, pgInsert, runSql, insertAudit,
+  getConnection, getProjectRef, getServiceRoleKey, pgGet, pgInsert, runSql, insertAudit, nowBrasilia, todayBrasilia,
 } from "../../shared/supabase.ts";
 import { mirrorRow } from "../../shared/nativeMirror.ts";
 
@@ -43,10 +43,8 @@ export default async function (req: Request): Promise<Response> {
       "ALTER TABLE cashback_transactions ADD COLUMN IF NOT EXISTS expiry_alerted boolean default false;"
     ).catch(() => {});
 
-    const today = new Date().toISOString().split("T")[0];
-    const horizonDate = new Date();
-    horizonDate.setDate(horizonDate.getDate() + ALERT_DAYS);
-    const horizon = horizonDate.toISOString().split("T")[0];
+    const today = todayBrasilia();
+    const horizon = new Date(Date.now() - 3 * 60 * 60 * 1000 + ALERT_DAYS * 86400000).toISOString().split("T")[0];
 
     const rows = await runSql(
       mgmtToken, ref,
@@ -79,7 +77,7 @@ export default async function (req: Request): Promise<Response> {
         message: `Olá ${name}! Você tem ${formatBRL(remaining)} de cashback que vence em ${formatDate(tx.expiry_date)}. Use na sua próxima compra antes que ele expire!`,
         type: "sistema",
         is_read: false,
-        sent_date: new Date().toISOString(),
+        sent_date: nowBrasilia(),
         is_demo: false,
       });
       await mirrorRow(base44, "notifications", notif);

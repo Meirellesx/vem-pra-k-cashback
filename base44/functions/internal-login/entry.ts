@@ -1,6 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import { verifyPassword } from "../../shared/passwordUtils.ts";
-import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgUpdate } from "../../shared/supabase.ts";
+import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgUpdate, nowBrasilia } from "../../shared/supabase.ts";
 import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 const MAX_ATTEMPTS = 5;
@@ -45,8 +45,10 @@ export default async function (req: Request): Promise<Response> {
 
     if (account.locked_until) {
       const lockUntil = new Date(account.locked_until).getTime();
-      if (Date.now() < lockUntil) {
-        const mins = Math.ceil((lockUntil - Date.now()) / 60000);
+      // Horários gravados estão no fuso de Brasília (UTC-3): compara no mesmo fuso.
+      const nowShifted = Date.now() - 3 * 60 * 60 * 1000;
+      if (nowShifted < lockUntil) {
+        const mins = Math.ceil((lockUntil - nowShifted) / 60000);
         return Response.json(
           {
             success: false,
@@ -74,7 +76,7 @@ export default async function (req: Request): Promise<Response> {
       const updates: Record<string, unknown> = { failed_attempts: attempts };
       if (attempts >= MAX_ATTEMPTS) {
         updates.locked_until = new Date(
-          Date.now() + LOCK_MINUTES * 60000
+          Date.now() - 3 * 60 * 60 * 1000 + LOCK_MINUTES * 60000
         ).toISOString();
         updates.failed_attempts = 0;
       }
@@ -89,7 +91,7 @@ export default async function (req: Request): Promise<Response> {
     const okUpd = await pgUpdate(key, ref, "internal_accounts", account.id, {
       failed_attempts: 0,
       locked_until: null,
-      last_login_at: new Date().toISOString(),
+      last_login_at: nowBrasilia(),
     });
     await mirrorRow(base44, "internal_accounts", okUpd);
 

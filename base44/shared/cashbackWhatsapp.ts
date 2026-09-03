@@ -1,7 +1,7 @@
 // Tabela operacional cashback_whatsapp — alimenta a futura integração n8n/Avisa.
 // O Base44 apenas cria e mantém os registros; NENHUM envio de mensagem acontece aqui.
 
-import { runSql, pgGet, pgInsert, pgList, ensureWhatsappSetup } from "./supabase.ts";
+import { runSql, pgGet, pgInsert, pgList, ensureWhatsappSetup, nowBrasilia } from "./supabase.ts";
 
 const esc = (s) => String(s ?? "").replace(/'/g, "''");
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -59,7 +59,7 @@ export async function insertWhatsappOnCashbackGenerated(accessToken, key, ref, p
   await ensureWhatsappSetup(accessToken, ref);
 
   const customer = await pgGet(key, ref, "customers", customer_id).catch(() => null);
-  const now = new Date().toISOString();
+  const now = nowBrasilia();
 
   // Elegibilidade de envio já decidida na gravação (modo piloto).
   const { piloto_ativo, piloto_telefones } = await getPilotConfig(key, ref).catch(() => ({

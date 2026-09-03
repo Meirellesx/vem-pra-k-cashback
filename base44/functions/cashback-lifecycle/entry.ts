@@ -1,7 +1,7 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import {
   getConnection, getProjectRef, getServiceRoleKey, runSql, pgInsert, insertAudit,
-  insertCashbackNotification,
+  insertCashbackNotification, todayBrasilia,
 } from "../../shared/supabase.ts";
 import { mirrorRow, patchNativeByLegacyId, mirrorCustomerFromSupabase } from "../../shared/nativeMirror.ts";
 import { expireWhatsappByCashback } from "../../shared/cashbackWhatsapp.ts";
@@ -37,7 +37,7 @@ export default async function (req: Request): Promise<Response> {
       "ALTER TABLE cashback_transactions ADD COLUMN IF NOT EXISTS used_amount numeric default 0;"
     ).catch(() => {});
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayBrasilia();
 
     // ===== (a) Liberação de cashback pendente vencido =====
     const toRelease = await runSql(

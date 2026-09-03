@@ -4,6 +4,17 @@
 const API_BASE = 'https://api.supabase.com/v1';
 const PROJECT_NAME = 'Cashback';
 
+// ===== Horário de Brasília (UTC-3) =====
+// Todas as gravações de data/hora do sistema usam o horário local de Brasília
+// (o Brasil não usa horário de verão desde 2019, então o offset é fixo).
+// Os padrões/triggers no banco gravam o mesmo valor (pareamento com timezone('UTC', ...)).
+export function nowBrasilia() {
+  return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+}
+export function todayBrasilia() {
+  return nowBrasilia().split("T")[0];
+}
+
 // Caches entre invocações (o processo sobrevive por um tempo).
 let cachedRef = null;
 let cachedKey = null;
@@ -53,8 +64,8 @@ export async function runSql(accessToken, ref, query) {
 // Colunas comuns a todas as tabelas (espelham os atributos embutidos do Base44).
 const COMMON = [
   'id uuid primary key default gen_random_uuid()',
-  'created_date timestamptz default now()',
-  'updated_date timestamptz default now()',
+  'created_date timestamptz default (timezone(\'UTC\', now() AT TIME ZONE \'America/Sao_Paulo\'))',
+  'updated_date timestamptz default (timezone(\'UTC\', now() AT TIME ZONE \'America/Sao_Paulo\'))',
   'created_by_id text',
 ].join(', ');
 
@@ -158,7 +169,7 @@ export const TABLES = {
     'opt_out_em timestamptz', 'status_telefone text default \'ativo\'',
     'ultima_tentativa_envio_em timestamptz', 'tentativas_envio integer default 0',
     'ultimo_erro_envio text',
-    'criado_em timestamptz default now()', 'atualizado_em timestamptz default now()',
+    'criado_em timestamptz default (timezone(\'UTC\', now() AT TIME ZONE \'America/Sao_Paulo\'))', 'atualizado_em timestamptz default (timezone(\'UTC\', now() AT TIME ZONE \'America/Sao_Paulo\'))',
     'is_demo boolean default false',
   ].join(', '),
 };
@@ -200,7 +211,7 @@ export async function ensureTables(accessToken, ref) {
     const triggerName = `set_updated_date_${name}`;
     await runSql(accessToken, ref, `
       CREATE OR REPLACE FUNCTION set_updated_date() RETURNS trigger AS $$
-      BEGIN NEW.updated_date = now(); RETURN NEW; END;
+      BEGIN NEW.updated_date = (timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo')); RETURN NEW; END;
       $$ LANGUAGE plpgsql;
       DROP TRIGGER IF EXISTS ${triggerName} ON ${name};
       CREATE TRIGGER ${triggerName} BEFORE UPDATE ON ${name}
@@ -259,7 +270,7 @@ export async function ensureWhatsappSetup(accessToken, ref) {
   // 5. atualizado_em automático em toda modificação.
   await runSql(accessToken, ref, `
     CREATE OR REPLACE FUNCTION set_atualizado_em() RETURNS trigger AS $$
-    BEGIN NEW.atualizado_em = now(); RETURN NEW; END;
+    BEGIN NEW.atualizado_em = (timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo')); RETURN NEW; END;
     $$ LANGUAGE plpgsql;
     DROP TRIGGER IF EXISTS set_atualizado_em ON cashback_whatsapp;
     CREATE TRIGGER set_atualizado_em BEFORE UPDATE ON cashback_whatsapp
@@ -445,7 +456,7 @@ export async function insertCashbackNotification(key, ref, payload) {
     message,
     type,
     is_read: false,
-    sent_date: new Date().toISOString(),
+    sent_date: nowBrasilia(),
     is_demo: !!is_demo,
   });
 }

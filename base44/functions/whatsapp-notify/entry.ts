@@ -1,6 +1,6 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.44";
 import {
-  getConnection, getProjectRef, getServiceRoleKey, pgGet, pgInsert, insertAudit,
+  getConnection, getProjectRef, getServiceRoleKey, pgGet, pgInsert, insertAudit, nowBrasilia,
 } from "../../shared/supabase.ts";
 import { mirrorRow } from "../../shared/nativeMirror.ts";
 
@@ -104,7 +104,7 @@ export default async function (req: Request): Promise<Response> {
       message,
       type: notifType,
       is_read: false,
-      sent_date: new Date().toISOString(),
+      sent_date: nowBrasilia(),
       is_demo: false,
     });
     if (notif) await mirrorRow(base44, "notifications", notif);

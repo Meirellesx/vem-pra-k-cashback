@@ -1,5 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk";
-import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgUpdate, insertAudit } from "../../shared/supabase.ts";
+import { getConnection, getProjectRef, getServiceRoleKey, pgList, pgUpdate, insertAudit, nowBrasilia } from "../../shared/supabase.ts";
 import { mirrorRow } from "../../shared/nativeMirror.ts";
 
 const STAFF_ROLES = ["admin", "manager", "cashier", "viewer", "operador"];
@@ -35,7 +35,7 @@ export default async function (req: Request): Promise<Response> {
     await base44.asServiceRole.entities.User.update(userId, { role: targetRole });
     const invUpd = await pgUpdate(key, ref, "staff_invitations", invitation.id, {
       status: "accepted",
-      accepted_at: new Date().toISOString(),
+      accepted_at: nowBrasilia(),
     });
     await mirrorRow(base44, "staff_invitations", invUpd);
 

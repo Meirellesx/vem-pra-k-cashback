@@ -3,7 +3,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
   getConnection, getProjectRef, ensureTables, listTables,
-  getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql,
+  getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql, nowBrasilia,
 } from '../../shared/supabase.ts';
 import { mirrorRow, mirrorDelete } from '../../shared/nativeMirror.ts';
 import { syncConsentsToWhatsapp, cancelWhatsappBySale, recomputePilotStatus } from '../../shared/cashbackWhatsapp.ts';
@@ -23,7 +23,7 @@ async function recordConsent(key, ref, customerId, customerName, consentType, ac
     customer_name: customerName || '',
     consent_type: consentType,
     accepted: !!accepted,
-    consent_date: new Date().toISOString(),
+    consent_date: nowBrasilia(),
     ip_address: '',
     version: 'painel',
   }).catch(() => null);
@@ -43,7 +43,7 @@ export default async function(req) {
     const ref = await getProjectRef(conn.accessToken);
 
     // ===== Operações administrativas (setup / saúde / migração) =====
-    if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateAll' || op === 'migrateCustomers' || op === 'migrateInternalAccounts' || op === 'migrateSettings' || op === 'migrateCategories' || op === 'migrateAuditLogs' || op === 'migrateStaffInvitations' || op === 'resetCustomerBalances' || op === 'cleanupTestWhatsapp') {
+    if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateAll' || op === 'migrateCustomers' || op === 'migrateInternalAccounts' || op === 'migrateSettings' || op === 'migrateCategories' || op === 'migrateAuditLogs' || op === 'migrateStaffInvitations' || op === 'resetCustomerBalances' || op === 'cleanupTestWhatsapp' || op === 'migrateTimezoneBrasilia') {
       if (user.role !== 'admin') {
         return Response.json({ error: 'Forbidden — apenas administradores.' }, { status: 403 });
       }
@@ -114,6 +114,57 @@ export default async function(req) {
         });
         await mirrorRow(base44, 'audit_logs', audit);
         return Response.json({ success: true, counts });
+      }
+      if (op === 'migrateTimezoneBrasilia') {
+        // Converte os horários já gravados em UTC para o horário de Brasília (UTC-3)
+        // e ajusta padrões/triggers para gravar em Brasília daqui em diante.
+        // ATENÇÃO: executar apenas UMA vez — cada execução desloca 3h novamente.
+        const tsCols = {
+          customers: ['created_date', 'updated_date', 'data_consentimento', 'opt_out_em'],
+          sales: ['created_date', 'updated_date'],
+          cashback_transactions: ['created_date', 'updated_date'],
+          cashback_redemptions: ['created_date', 'updated_date'],
+          cashback_settings: ['created_date', 'updated_date'],
+          product_categories: ['created_date', 'updated_date'],
+          audit_logs: ['created_date', 'updated_date'],
+          notifications: ['created_date', 'updated_date', 'sent_date'],
+          consent_records: ['created_date', 'updated_date', 'consent_date'],
+          internal_accounts: ['created_date', 'updated_date', 'last_login_at', 'locked_until'],
+          staff_invitations: ['created_date', 'updated_date', 'invited_at', 'accepted_at'],
+          cashback_whatsapp: [
+            'created_date', 'updated_date', 'criado_em', 'atualizado_em',
+            'data_consentimento', 'data_geracao_cashback', 'data_expiracao_cashback',
+            'ultima_compra_em', 'ultima_mensagem_em', 'proxima_acao_em',
+            'opt_out_em', 'ultima_tentativa_envio_em',
+          ],
+        };
+        let shifted = 0;
+        for (const [t, cols] of Object.entries(tsCols)) {
+          for (const col of cols) {
+            const r = await runSql(conn.accessToken, ref,
+              `UPDATE ${t} SET ${col} = ${col} - interval '3 hours' WHERE ${col} IS NOT NULL RETURNING id;`
+            ).catch(() => []);
+            shifted += (r || []).length;
+          }
+          await runSql(conn.accessToken, ref,
+            `ALTER TABLE ${t} ALTER COLUMN created_date SET DEFAULT (timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo'));`
+          ).catch(() => {});
+          await runSql(conn.accessToken, ref,
+            `ALTER TABLE ${t} ALTER COLUMN updated_date SET DEFAULT (timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo'));`
+          ).catch(() => {});
+        }
+        await runSql(conn.accessToken, ref,
+          "ALTER TABLE cashback_whatsapp ALTER COLUMN criado_em SET DEFAULT (timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo'));"
+        ).catch(() => {});
+        await runSql(conn.accessToken, ref, `
+          CREATE OR REPLACE FUNCTION set_updated_date() RETURNS trigger AS $$
+          BEGIN NEW.updated_date = (timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo')); RETURN NEW; END;
+          $$ LANGUAGE plpgsql;
+          CREATE OR REPLACE FUNCTION set_atualizado_em() RETURNS trigger AS $$
+          BEGIN NEW.atualizado_em = (timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo')); RETURN NEW; END;
+          $$ LANGUAGE plpgsql;
+        `).catch(() => {});
+        return Response.json({ success: true, registros_ajustados: shifted });
       }
       // ===== Migração genérica: copia registros de uma entidade Base44 para a
       //       tabela correspondente no Supabase (idempotente por legacy_id). =====
@@ -274,7 +325,7 @@ export default async function(req) {
         if (data.promocoes_opt_in === undefined) data.promocoes_opt_in = !!data.accepts_promotions;
         if (data.cashback_comunicacao_opt_in === undefined) data.cashback_comunicacao_opt_in = false;
         if ((data.promocoes_opt_in || data.cashback_comunicacao_opt_in) && !data.data_consentimento) {
-          data.data_consentimento = new Date().toISOString();
+          data.data_consentimento = nowBrasilia();
           data.origem_consentimento = data.origem_consentimento || 'painel';
         }
       }
@@ -331,11 +382,11 @@ export default async function(req) {
           const patch = {};
           if ((prevPromo && !newPromo) || (prevCash && !newCash)) {
             // Retirada de autorização → registra o opt-out.
-            patch.opt_out_em = new Date().toISOString();
+            patch.opt_out_em = nowBrasilia();
           } else if ((!prevPromo && newPromo) || (!prevCash && newCash)) {
             // Nova autorização → data/origem do consentimento; limpa opt-out anterior.
             patch.opt_out_em = null;
-            patch.data_consentimento = new Date().toISOString();
+            patch.data_consentimento = nowBrasilia();
             patch.origem_consentimento = 'painel';
           }
           let finalRow = row;
