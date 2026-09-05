@@ -169,8 +169,27 @@ export const TABLES = {
     'opt_out_em timestamptz', 'status_telefone text default \'ativo\'',
     'ultima_tentativa_envio_em timestamptz', 'tentativas_envio integer default 0',
     'ultimo_erro_envio text',
+    // Controle de envio do n8n: marcos de expiração 7/4/3/2/1 (as flags 7d/3d/1d já
+    // existem acima; aqui vão 4d e 2d), ciclo de inatividade (contador + timestamp),
+    // e motivo de encerramento. proxima_acao_tipo pode virar 'monitorar_expiracao'
+    // (o n8n seta após a mensagem inicial de venda). motivo_encerramento ∈
+    // enviado | opt_out | fora_piloto | sem_telefone | cancelado | lote_expirado | falha_envio | cutover.
+    'aviso_expiracao_4d_enviado boolean default false',
+    'aviso_expiracao_2d_enviado boolean default false',
+    'lembretes_inatividade_enviados smallint default 0',
+    'ultimo_lembrete_inatividade_em timestamptz',
+    'data_ultima_tentativa_ok timestamptz',
+    'motivo_encerramento text',
     'criado_em timestamptz default (timezone(\'UTC\', now() AT TIME ZONE \'America/Sao_Paulo\'))', 'atualizado_em timestamptz default (timezone(\'UTC\', now() AT TIME ZONE \'America/Sao_Paulo\'))',
     'is_demo boolean default false',
+  ].join(', '),
+  // Log append-only de envios do n8n/Avisa (auditoria de cada envio/tentativa e
+  // contagem dos ciclos de inatividade). Ganha COMMON + trigger set_updated_date
+  // automaticamente via ensureTables.
+  cashback_whatsapp_envios: [
+    'cliente_id text', 'telefone text', 'tipo text', 'referencia text', 'marco text',
+    'mensagem text', 'status text', 'erro text', 'avisa_message_id text',
+    'enviado_em timestamptz', 'payload_resposta jsonb',
   ].join(', '),
 };
 
@@ -240,6 +259,7 @@ export async function ensureWhatsappSetup(accessToken, ref) {
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS data_consentimento timestamptz;',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS origem_consentimento text;',
     'ALTER TABLE customers ADD COLUMN IF NOT EXISTS opt_out_em timestamptz;',
+    'ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_purchase_at timestamptz;',
   ]) {
     await runSql(accessToken, ref, sql).catch(() => {});
   }
@@ -254,6 +274,29 @@ export async function ensureWhatsappSetup(accessToken, ref) {
   // 2. Tabela operacional (um registro por cashback gerado).
   await runSql(accessToken, ref,
     `CREATE TABLE IF NOT EXISTS cashback_whatsapp (${COMMON}, ${TABLES.cashback_whatsapp});`);
+  // 2b. Colunas de controle de envio do n8n em cashback_whatsapp (tabelas já existentes).
+  for (const sql of [
+    "ALTER TABLE cashback_whatsapp ADD COLUMN IF NOT EXISTS aviso_expiracao_4d_enviado boolean default false;",
+    "ALTER TABLE cashback_whatsapp ADD COLUMN IF NOT EXISTS aviso_expiracao_2d_enviado boolean default false;",
+    "ALTER TABLE cashback_whatsapp ADD COLUMN IF NOT EXISTS lembretes_inatividade_enviados smallint default 0;",
+    "ALTER TABLE cashback_whatsapp ADD COLUMN IF NOT EXISTS ultimo_lembrete_inatividade_em timestamptz;",
+    "ALTER TABLE cashback_whatsapp ADD COLUMN IF NOT EXISTS data_ultima_tentativa_ok timestamptz;",
+    "ALTER TABLE cashback_whatsapp ADD COLUMN IF NOT EXISTS motivo_encerramento text;",
+    "CREATE INDEX IF NOT EXISTS idx_cw_motivo_encerramento ON cashback_whatsapp(motivo_encerramento);",
+  ]) {
+    await runSql(accessToken, ref, sql).catch(() => {});
+  }
+  // 2c. Log append-only de envios do n8n (auditoria + contagem de ciclos de inatividade).
+  await runSql(accessToken, ref,
+    `CREATE TABLE IF NOT EXISTS cashback_whatsapp_envios (${COMMON}, ${TABLES.cashback_whatsapp_envios});`);
+  for (const sql of [
+    "ALTER TABLE cashback_whatsapp_envios ENABLE ROW LEVEL SECURITY;",
+    "CREATE INDEX IF NOT EXISTS idx_cwe_cliente_id ON cashback_whatsapp_envios(cliente_id);",
+    "CREATE INDEX IF NOT EXISTS idx_cwe_tipo_ref_marco ON cashback_whatsapp_envios(tipo, referencia, marco);",
+    "CREATE INDEX IF NOT EXISTS idx_cwe_enviado_em ON cashback_whatsapp_envios(enviado_em);",
+  ]) {
+    await runSql(accessToken, ref, sql).catch(() => {});
+  }
   // 3. Proteção contra duplicidade: o mesmo cashback_id_origem nunca repete.
   await runSql(accessToken, ref,
     'CREATE UNIQUE INDEX IF NOT EXISTS uniq_cw_cashback_id_origem ON cashback_whatsapp(cashback_id_origem);').catch(() => {});
