@@ -58,7 +58,8 @@ export default function Sales() {
       extra_filters: { is_demo: false, is_active: true },
       sort: '-created_date', limit: 20,
     }).catch(() => null);
-    const rows = res?.data || [];
+    const payload = res?.data ?? res;
+    const rows = payload?.data ?? payload ?? [];
     const results = rows.filter(c => c.is_active !== false && (
       c.name?.toLowerCase().includes(q.toLowerCase()) ||
       (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned)) ||
