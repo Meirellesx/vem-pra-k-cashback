@@ -50,11 +50,20 @@ export default function Sales() {
     setSearch(q);
     if (q.length < 2) { setSearchResults([]); return; }
     const cleaned = q.replace(/\D/g, '');
-    const all = await Customer.list('-created_date', 100);
-    const results = all.filter(c => c.is_active !== false && !c.is_demo && (
+    // Busca server-side (PostgREST ilike) em TODOS os clientes — não fica
+    // limitada aos mais recentes, então clientes antigos também aparecem.
+    const res = await base44.functions.invoke('supabase-data', {
+      table: 'customers', op: 'search', q,
+      columns: ['name', 'cpf', 'identifier_code', 'phone'],
+      extra_filters: { is_demo: false, is_active: true },
+      sort: '-created_date', limit: 20,
+    }).catch(() => null);
+    const rows = res?.data || [];
+    const results = rows.filter(c => c.is_active !== false && (
       c.name?.toLowerCase().includes(q.toLowerCase()) ||
       (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned)) ||
-      (cleaned && c.identifier_code && c.identifier_code.replace(/\D/g, '').includes(cleaned))
+      (cleaned && c.identifier_code && c.identifier_code.replace(/\D/g, '').includes(cleaned)) ||
+      (cleaned && c.cpf && c.cpf.replace(/\D/g, '').includes(cleaned))
     ));
     setSearchResults(results.slice(0, 5));
   };

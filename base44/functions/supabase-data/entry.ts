@@ -3,7 +3,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
   getConnection, getProjectRef, ensureTables, listTables,
-  getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql, nowBrasilia,
+  getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql, nowBrasilia, pgSearch,
 } from '../../shared/supabase.ts';
 import { mirrorRow, mirrorDelete } from '../../shared/nativeMirror.ts';
 import { syncConsentsToWhatsapp, cancelWhatsappBySale, recomputePilotStatus } from '../../shared/cashbackWhatsapp.ts';
@@ -310,6 +310,13 @@ export default async function(req) {
     }
     if (op === 'filter') {
       const rows = await pgList(key, ref, table, { filters: body.query, sort: body.sort, limit: body.limit });
+      return Response.json({ data: rows });
+    }
+    if (op === 'search') {
+      const rows = await pgSearch(key, ref, table, {
+        q: body.q, columns: body.columns || ['name'],
+        extraFilters: body.extra_filters, sort: body.sort, limit: body.limit || 20,
+      });
       return Response.json({ data: rows });
     }
     if (op === 'get') {

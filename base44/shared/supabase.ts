@@ -363,6 +363,27 @@ export async function pgList(key, ref, table, opts = {}) {
   return await res.json();
 }
 
+// Busca textual server-side (PostgREST or + ilike) em uma ou mais colunas.
+// Varre TODOS os registros (independente de created_date) — ideal para achar
+// clientes antigos pelo nome/telefone/CPF. extraFilters é combinado com AND.
+export async function pgSearch(key, ref, table, opts = {}) {
+  const { q, columns = ['name'], extraFilters, sort, limit } = opts;
+  const term = String(q || '').trim();
+  let qs = `select=${encodeURIComponent('*')}`;
+  if (term) {
+    const orParts = (columns || []).map((c) => `${c}.ilike.*${encodeURIComponent(term)}*`);
+    qs += `&or=(${orParts.join(',')})`;
+  }
+  const f = buildFilter(extraFilters);
+  if (f) qs += `&${f}`;
+  const order = translateSort(sort);
+  if (order) qs += `&order=${encodeURIComponent(order)}`;
+  if (limit) qs += `&limit=${limit}`;
+  const res = await fetch(`${pgUrl(ref, table)}?${qs}`, { headers: pgHeaders(key) });
+  if (!res.ok) throw new Error(`pgSearch ${table} (${res.status}): ${await res.text()}`);
+  return await res.json();
+}
+
 export async function pgGet(key, ref, table, id) {
   const rows = await pgList(key, ref, table, { filters: { id }, limit: 1 });
   return rows && rows.length > 0 ? rows[0] : null;
