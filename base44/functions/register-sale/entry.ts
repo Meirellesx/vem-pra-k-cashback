@@ -68,6 +68,17 @@ export default async function (req) {
     });
     await mirrorRow(base44, 'sales', sale);
 
+    // 2.5. Denormaliza a data da última compra do cliente (fluxo de inatividade do
+    //      n8n lê só customers). GREATEST evita retroceder se registrarem venda antiga.
+    if (customer_id) {
+      const saleDateExpr = /^\d{4}-\d{2}-\d{2}$/.test(String(sale_date))
+        ? `'${sale_date}'::timestamptz`
+        : "(timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo'))";
+      await runSql(conn.accessToken, ref,
+        `UPDATE customers SET last_purchase_at = GREATEST(COALESCE(last_purchase_at, '1970-01-01'::timestamptz), ${saleDateExpr}) WHERE id = '${customer_id}';`
+      ).catch((e) => { console.error('last_purchase_at update error:', e.message); });
+    }
+
     let txId = null;
     if (generate_cashback && cbAmount > 0 && customer_id) {
       // 3. Cria a transação de cashback.
