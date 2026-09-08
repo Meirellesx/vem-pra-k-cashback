@@ -173,7 +173,8 @@ export const TABLES = {
     // existem acima; aqui vão 4d e 2d), ciclo de inatividade (contador + timestamp),
     // e motivo de encerramento. proxima_acao_tipo pode virar 'monitorar_expiracao'
     // (o n8n seta após a mensagem inicial de venda). motivo_encerramento ∈
-    // enviado | opt_out | fora_piloto | sem_telefone | cancelado | lote_expirado | falha_envio | cutover.
+    // enviado | opt_out | sem_optin | fora_piloto | sem_telefone | cancelado | lote_expirado | falha_envio | cutover.
+    // (sem_optin = cliente sem cashback_comunicacao_opt_in no momento do envio)
     'aviso_expiracao_4d_enviado boolean default false',
     'aviso_expiracao_2d_enviado boolean default false',
     'lembretes_inatividade_enviados smallint default 0',
