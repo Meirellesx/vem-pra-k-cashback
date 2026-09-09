@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
-  getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, pgRpc,
+  getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, pgRpc, authMe,
   insertCashbackNotification,
 } from '../../shared/supabase.ts';
 import { mirrorRow, mirrorCustomerFromSupabase } from '../../shared/nativeMirror.ts';
@@ -17,7 +17,7 @@ const num = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
 export default async function (req) {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    const user = await authMe(base44, req);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
