@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import Customer from '@/lib/customersDb';
 import Sale from '@/lib/salesDb';
 import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/cashbackUtils';
+import { getReportStats } from '@/lib/statsDb';
 import { BarChart3, Download, TrendingUp, Wallet, Clock, XCircle, ShoppingCart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const COLORS = ['#FF6B00', '#22c55e', '#3b82f6', '#f59e0b', '#ef4444'];
+
+// Data inicial do período selecionado.
+const periodStart = (period) => {
+  const now = new Date();
+  const d = new Date();
+  if (period === 'week') d.setDate(now.getDate() - 7);
+  else if (period === 'month') d.setMonth(now.getMonth() - 1);
+  else if (period === 'quarter') d.setMonth(now.getMonth() - 3);
+  else d.setFullYear(now.getFullYear() - 1);
+  return d;
+};
 
 function SummaryCard({ title, value, icon: Icon, color }) {
   return (
@@ -31,65 +41,28 @@ export default function Reports() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [sales, transactions, customers] = await Promise.all([
-        Sale.filter({ is_demo: false }),
-        CashbackTransaction.filter({ is_demo: false }),
-        Customer.filter({ is_demo: false }),
-      ]);
-
-      const now = new Date();
-      const startDate = new Date();
-      if (period === 'week') startDate.setDate(now.getDate() - 7);
-      else if (period === 'month') startDate.setMonth(now.getMonth() - 1);
-      else if (period === 'quarter') startDate.setMonth(now.getMonth() - 3);
-      else startDate.setFullYear(now.getFullYear() - 1);
-
-      const filteredSales = sales.filter(s => new Date(s.sale_date) >= startDate && s.status === 'concluida');
-      const filteredTx = transactions.filter(t => new Date(t.transaction_date) >= startDate);
-
-      const generated = filteredTx.filter(t => t.type === 'gerado');
-      const used = filteredTx.filter(t => t.type === 'utilizado');
-      const expired = filteredTx.filter(t => t.status === 'expirado');
-      const pending = transactions.filter(t => t.status === 'pendente');
-      const available = customers.reduce((a, b) => a + (b.available_balance || 0), 0);
-
-      // Monthly chart data
-      const monthlyMap = {};
-      filteredSales.forEach(s => {
-        const month = s.sale_date?.slice(0, 7) || '';
-        if (!monthlyMap[month]) monthlyMap[month] = { month, vendas: 0, cashback: 0 };
-        monthlyMap[month].vendas += s.total_amount || 0;
-        monthlyMap[month].cashback += s.cashback_amount || 0;
-      });
-      const chartData = Object.values(monthlyMap).sort((a, b) => a.month.localeCompare(b.month)).slice(-12);
-
-      // Payment method pie
-      const pmMap = {};
-      filteredSales.forEach(s => {
-        pmMap[s.payment_method] = (pmMap[s.payment_method] || 0) + 1;
-      });
-      const pieData = Object.entries(pmMap).map(([name, value]) => ({ name, value }));
-
+      const startStr = periodStart(period).toISOString().split('T')[0];
+      const s = await getReportStats(startStr);
       setData({
-        totalSales: filteredSales.length,
-        totalSalesValue: filteredSales.reduce((a, b) => a + (b.total_amount || 0), 0),
-        cashbackGenerated: generated.reduce((a, b) => a + Math.abs(b.amount || 0), 0),
-        cashbackUsed: Math.abs(used.reduce((a, b) => a + (b.amount || 0), 0)),
-        cashbackExpired: expired.reduce((a, b) => a + Math.abs(b.amount || 0), 0),
-        pendingBalance: pending.reduce((a, b) => a + (b.amount || 0), 0),
-        availableBalance: available,
-        chartData,
-        pieData,
-        allSales: filteredSales,
-        allTransactions: filteredTx,
+        totalSales: s.totalSales || 0,
+        totalSalesValue: s.totalSalesValue || 0,
+        cashbackGenerated: s.cashbackGenerated || 0,
+        cashbackUsed: s.cashbackUsed || 0,
+        cashbackExpired: s.cashbackExpired || 0,
+        pendingBalance: s.pendingBalance || 0,
+        availableBalance: s.availableBalance || 0,
+        chartData: s.chartData || [],
+        pieData: s.pieData || [],
       });
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
-  const exportSales = () => {
-    if (!data?.allSales) return;
-    exportToCSV(data.allSales, 'vendas.csv', [
+  const exportSales = async () => {
+    const startDate = periodStart(period);
+    const all = await Sale.filter({ is_demo: false });
+    const rows = (all || []).filter(s => new Date(s.sale_date) >= startDate && s.status === 'concluida');
+    exportToCSV(rows, 'vendas.csv', [
       { key: 'sale_number', label: 'Número' },
       { key: 'customer_name', label: 'Cliente' },
       { key: 'total_amount', label: 'Valor Total' },
@@ -100,9 +73,11 @@ export default function Reports() {
     ]);
   };
 
-  const exportTransactions = () => {
-    if (!data?.allTransactions) return;
-    exportToCSV(data.allTransactions, 'movimentacoes.csv', [
+  const exportTransactions = async () => {
+    const startDate = periodStart(period);
+    const all = await CashbackTransaction.filter({ is_demo: false });
+    const rows = (all || []).filter(t => new Date(t.transaction_date) >= startDate);
+    exportToCSV(rows, 'movimentacoes.csv', [
       { key: 'customer_name', label: 'Cliente' },
       { key: 'sale_number', label: 'Venda' },
       { key: 'amount', label: 'Valor' },
