@@ -3,7 +3,7 @@ import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
 import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { useAuth } from '@/lib/AuthContext';
-import { formatCurrency, formatDate, exportToCSV } from '@/lib/cashbackUtils';
+import { formatCurrency, formatDate, exportToCSV, getCustomerForUser } from '@/lib/cashbackUtils';
 import { FileText, Download, Filter, RefreshCw } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
@@ -21,8 +21,7 @@ export default function StatementPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const all = await Customer.list('-created_date', 500);
-    const mine = all.find(c => c.created_by_id === user?.id);
+    const mine = await getCustomerForUser(user);
     if (mine) {
       setCustomer(mine);
       const txs = await CashbackTransaction.filter({ customer_id: mine.id });
