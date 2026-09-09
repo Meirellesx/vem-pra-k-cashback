@@ -134,6 +134,29 @@ export const getMyCustomer = async (operator) => {
   } catch (e) { return null; }
 };
 
+// Retorna o registro de Cliente do usuário logado (Base44 auth). Busca 1 linha
+// indexada por e-mail; cai para created_by_id e, por fim, para uma busca
+// case-insensitive por e-mail. Substitui o antigo "baixa 500 e .find()".
+export const getCustomerForUser = async (user) => {
+  if (!user) return null;
+  try {
+    if (user.email) {
+      const byEmail = await Customer.filter({ email: user.email });
+      if (byEmail && byEmail.length > 0) return byEmail[0];
+    }
+    if (user.id) {
+      const byCreator = await Customer.filter({ created_by_id: user.id });
+      if (byCreator && byCreator.length > 0) return byCreator[0];
+    }
+    if (user.email) {
+      const ci = await Customer.search(user.email, { limit: 5 }).catch(() => []);
+      const hit = (ci || []).find(c => (c.email || '').toLowerCase() === user.email.toLowerCase());
+      if (hit) return hit;
+    }
+  } catch (e) { console.error('getCustomerForUser', e); }
+  return null;
+};
+
 // Compara CPF apenas em dígitos.
 const onlyDigits = (v) => (v || '').replace(/\D/g, '');
 
