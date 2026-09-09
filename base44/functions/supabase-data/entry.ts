@@ -2,7 +2,7 @@
 // Usa o módulo compartilhado supabase.ts (project ref hardcoded + retry na service key).
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
-  getConnection, getProjectRef, ensureTables, listTables,
+  getConnection, getProjectRef, ensureTables, listTables, authMe,
   getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql, nowBrasilia, pgSearch, pgCount, pgRpc,
 } from '../../shared/supabase.ts';
 import { mirrorRow, mirrorDelete } from '../../shared/nativeMirror.ts';
@@ -33,11 +33,22 @@ async function recordConsent(key, ref, customerId, customerName, consentType, ac
 export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
     const { op, table } = body;
+
+    // Keep-warm: aquece o isolate + o cache de conexão. Não exige usuário.
+    if (op === 'ping') {
+      try {
+        const c = await getConnection(base44);
+        const r = await getProjectRef(c.accessToken);
+        await getServiceRoleKey(c.accessToken, r);
+      } catch (_) { /* ignora */ }
+      return Response.json({ ok: true, warm: true });
+    }
+
+    const user = await authMe(base44, req);
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const conn = await getConnection(base44);
     const ref = await getProjectRef(conn.accessToken);
