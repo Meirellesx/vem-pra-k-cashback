@@ -9,6 +9,7 @@ import { PAYMENT_METHODS } from '@/lib/constants';
 import { getOperator } from '@/lib/internalAuth';
 import DrawerSelect from '@/components/mobile/DrawerSelect';
 import ProductCategory from '@/lib/productCategoriesDb';
+import { validateCustomerForm } from '@/lib/validators';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -88,6 +89,8 @@ export default function Sales() {
       setError('⚠️ Você não pode cadastrar um cliente com os seus próprios dados. Peça a outro operador.');
       return;
     }
+    const vErrs = validateCustomerForm({ ...newCustomerForm, email: '' });
+    if (Object.keys(vErrs).length) { setError('⚠️ ' + Object.values(vErrs)[0]); return; }
     try {
       const { cpfToIdentifierCode } = await import('@/lib/cashbackUtils');
       const code = cpfToIdentifierCode(newCustomerForm.cpf);
