@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import Customer from '@/lib/customersDb';
 import { useAuth } from '@/lib/AuthContext';
-import { formatCpf } from '@/lib/cashbackUtils';
+import { formatCpf, getCustomerForUser } from '@/lib/cashbackUtils';
 import { Copy, Check } from 'lucide-react';
 
 export default function MeuCodigo() {
@@ -27,12 +27,7 @@ export default function MeuCodigo() {
     (async () => {
       try {
         if (!user?.id) return;
-        const all = await Customer.list('-created_date', 500);
-        const mine = all.find(
-          (c) =>
-            (c.email && user.email && c.email.toLowerCase() === user.email.toLowerCase()) ||
-            c.created_by_id === user.id
-        );
+        const mine = await getCustomerForUser(user);
         if (mine) setCustomer(mine);
       } catch (e) {
         console.error(e);
