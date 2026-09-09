@@ -7,6 +7,20 @@ import {
 } from '../../shared/supabase.ts';
 import { mirrorRow, mirrorDelete } from '../../shared/nativeMirror.ts';
 import { syncConsentsToWhatsapp, cancelWhatsappBySale, recomputePilotStatus } from '../../shared/cashbackWhatsapp.ts';
+import { validateCustomerPayload } from '../../shared/validators.ts';
+
+// Checa duplicidade de cliente (CPF/telefone/e-mail) com a mesma normalização
+// dos índices únicos. Retorna o campo que colide ou null.
+async function customerDup(key, ref, data, excludeId) {
+  return await pgRpc(key, ref, 'check_customer_dup', {
+    p_cpf: String(data.cpf ?? data.identifier_code ?? ''),
+    p_phone: String(data.phone ?? ''),
+    p_email: String(data.email ?? ''),
+    p_exclude: excludeId || null,
+  }).catch(() => null);
+}
+
+const isUniqueViolation = (e) => String(e?.message || '').includes('23505');
 
 // Tabelas permitidas para CRUD genérico via esta função.
 // Todas as entidades do app agora vivem no Supabase; o Base44 funciona apenas como backup.
@@ -353,6 +367,10 @@ export default async function(req) {
       const data = { ...body.data };
       if (!data.created_by_id) data.created_by_id = user.id;
       if (table === 'customers') {
+        const vErr = validateCustomerPayload(data, { partial: false });
+        if (vErr) return Response.json({ error: vErr }, { status: 400 });
+        const dup = await customerDup(key, ref, data, null);
+        if (dup) return Response.json({ error: `Já existe um cliente ativo com esse ${dup}.` }, { status: 409 });
         // Consentimentos: promocoes_opt_in acompanha o campo legado accepts_promotions;
         // cashback_comunicacao_opt_in é independente (default false).
         if (data.promocoes_opt_in === undefined) data.promocoes_opt_in = !!data.accepts_promotions;
@@ -362,7 +380,15 @@ export default async function(req) {
           data.origem_consentimento = data.origem_consentimento || 'painel';
         }
       }
-      const row = await pgInsert(key, ref, table, data);
+      let row;
+      try {
+        row = await pgInsert(key, ref, table, data);
+      } catch (e) {
+        if (table === 'customers' && isUniqueViolation(e)) {
+          return Response.json({ error: 'Já existe um cliente ativo com esse CPF, telefone ou e-mail.' }, { status: 409 });
+        }
+        throw e;
+      }
       await mirrorRow(base44, table, row);
       if (table === 'customers') {
         // Registro inicial dos dois consentimentos para auditoria (LGPD).
@@ -379,11 +405,28 @@ export default async function(req) {
         // Mantém promocoes_opt_in em sincronia com o campo legado do formulário.
         data.promocoes_opt_in = !!data.accepts_promotions;
       }
+      if (table === 'customers') {
+        const vErr = validateCustomerPayload(data, { partial: true });
+        if (vErr) return Response.json({ error: vErr }, { status: 400 });
+        if (data.cpf !== undefined || data.identifier_code !== undefined ||
+            data.phone !== undefined || data.email !== undefined) {
+          const dup = await customerDup(key, ref, data, body.id);
+          if (dup) return Response.json({ error: `Já existe outro cliente ativo com esse ${dup}.` }, { status: 409 });
+        }
+      }
       // Estado anterior dos consentimentos (para registrar alterações/opt-out).
       const prev = table === 'customers'
         ? await pgGet(key, ref, 'customers', body.id).catch(() => null)
         : null;
-      const row = await pgUpdate(key, ref, table, body.id, data);
+      let row;
+      try {
+        row = await pgUpdate(key, ref, table, body.id, data);
+      } catch (e) {
+        if (table === 'customers' && isUniqueViolation(e)) {
+          return Response.json({ error: 'Já existe outro cliente ativo com esse CPF, telefone ou e-mail.' }, { status: 409 });
+        }
+        throw e;
+      }
       await mirrorRow(base44, table, row);
 
       // Modo piloto alterado no painel → recalcula a elegibilidade de envio
