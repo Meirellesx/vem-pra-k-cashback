@@ -4,7 +4,7 @@ import Customer from '@/lib/customersDb';
 import Sale from '@/lib/salesDb';
 import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { useAuth } from '@/lib/AuthContext';
-import { formatCurrency, formatDate, formatPhone } from '@/lib/cashbackUtils';
+import { formatCurrency, formatDate, formatPhone, getCustomerForUser } from '@/lib/cashbackUtils';
 import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle, RefreshCw } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import DeleteAccountModal from '@/components/customer/DeleteAccountModal';
@@ -35,11 +35,7 @@ export default function CustomerArea() {
       if (s.length > 0) setSettings(s[0]);
 
       if (!user?.id) { setLoading(false); return; }
-      const all = await Customer.list('-created_date', 500);
-      const mine = all.find(c =>
-        (c.email && user.email && c.email.toLowerCase() === user.email.toLowerCase()) ||
-        c.created_by_id === user.id
-      );
+      const mine = await getCustomerForUser(user);
       if (mine) {
         setCustomer(mine);
         const txs = await CashbackTransaction.filter({ customer_id: mine.id });
