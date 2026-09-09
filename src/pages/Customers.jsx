@@ -6,6 +6,7 @@ import { formatCurrency, formatPhone, cpfToIdentifierCode, createAuditLog, expor
 import { Search, Plus, Download, User, Phone, Wallet, Clock, Edit2, X, Check, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import SuccessModal from '@/components/SuccessModal';
+import { validateCustomerForm } from '@/lib/validators';
 
 // Normaliza para comparar: remove tudo que não é dígito/letra e caixa baixa.
 const norm = (v) => String(v || '').toLowerCase().replace(/[^0-9a-z]/g, '');
@@ -38,10 +39,12 @@ async function findDuplicateCustomers(form) {
 function CustomerModal({ customer, onClose, onSave }) {
   const [form, setForm] = useState(customer || { name: '', phone: '', email: '', cpf: '', accepts_promotions: false, cashback_comunicacao_opt_in: false });
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const handleSave = async () => {
-    if (!form.name || !form.phone || !form.cpf) return;
-    if (!customer && !form.email) return;
+    const errs = validateCustomerForm(form, { requireEmail: !customer });
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
     setSaving(true);
     try {
       await onSave(form);
@@ -62,12 +65,14 @@ function CustomerModal({ customer, onClose, onSave }) {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nome *</label>
             <input value={form.name} onChange={e => setForm({...form, name: e.target.value})}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+            {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Telefone *</label>
             <input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
               placeholder="(00) 00000-0000"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+            {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone}</p>}
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -76,6 +81,7 @@ function CustomerModal({ customer, onClose, onSave }) {
             <input type="email" value={form.email || ''} onChange={e => setForm({...form, email: e.target.value})}
               placeholder="email@exemplo.com"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+            {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
             {!customer && (
               <p className="text-xs text-orange-600 mt-1">O cliente receberá um e-mail para criar sua senha e acessar a plataforma.</p>
             )}
@@ -85,6 +91,7 @@ function CustomerModal({ customer, onClose, onSave }) {
             <input value={form.cpf || ''} onChange={e => setForm({...form, cpf: e.target.value})}
               placeholder="000.000.000-00"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+            {errors.cpf && <p className="text-xs text-red-600 mt-1">{errors.cpf}</p>}
             {!customer && (
               <p className="text-xs text-orange-600 mt-1">O CPF é o código de identificação do cliente para resgate de cashback.</p>
             )}
