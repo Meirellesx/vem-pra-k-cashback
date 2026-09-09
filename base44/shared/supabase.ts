@@ -433,6 +433,23 @@ export async function pgGet(key, ref, table, id) {
   return rows && rows.length > 0 ? rows[0] : null;
 }
 
+// Conta linhas server-side via PostgREST (Prefer: count=exact + Range 0-0).
+// Retorna um número; faz 1 request e NÃO traz as linhas.
+export async function pgCount(key, ref, table, filters) {
+  let qs = 'select=id';
+  const f = buildFilter(filters);
+  if (f) qs += `&${f}`;
+  const res = await fetch(`${pgUrl(ref, table)}?${qs}`, {
+    headers: pgHeaders(key, { Prefer: 'count=exact', 'Range-Unit': 'items', Range: '0-0' }),
+  });
+  if (!res.ok && res.status !== 206) {
+    throw new Error(`pgCount ${table} (${res.status}): ${await res.text()}`);
+  }
+  const cr = res.headers.get('content-range') || '';
+  const total = Number(cr.split('/')[1]);
+  return Number.isFinite(total) ? total : 0;
+}
+
 export async function pgInsert(key, ref, table, data) {
   const res = await fetch(pgUrl(ref, table), {
     method: 'POST',
