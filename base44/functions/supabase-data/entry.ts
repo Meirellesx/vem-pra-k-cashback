@@ -3,7 +3,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
   getConnection, getProjectRef, ensureTables, listTables,
-  getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql, nowBrasilia, pgSearch, pgCount,
+  getServiceRoleKey, pgList, pgGet, pgInsert, pgUpdate, pgDelete, runSql, nowBrasilia, pgSearch, pgCount, pgRpc,
 } from '../../shared/supabase.ts';
 import { mirrorRow, mirrorDelete } from '../../shared/nativeMirror.ts';
 import { syncConsentsToWhatsapp, cancelWhatsappBySale, recomputePilotStatus } from '../../shared/cashbackWhatsapp.ts';
@@ -41,6 +41,17 @@ export default async function(req) {
 
     const conn = await getConnection(base44);
     const ref = await getProjectRef(conn.accessToken);
+
+    // ===== Agregações server-side (RPC PostgREST, allowlist) =====
+    if (op === 'rpc') {
+      const RPC_ALLOW = new Set(['dashboard_stats', 'report_stats']);
+      if (!RPC_ALLOW.has(body.fn)) {
+        return Response.json({ error: 'RPC não permitida.' }, { status: 400 });
+      }
+      const rpcKey = await getServiceRoleKey(conn.accessToken, ref);
+      const data = await pgRpc(rpcKey, ref, body.fn, body.args || {});
+      return Response.json({ data });
+    }
 
     // ===== Operações administrativas (setup / saúde / migração) =====
     if (op === 'setup' || op === 'health' || op === 'listTables' || op === 'migrateAll' || op === 'migrateCustomers' || op === 'migrateInternalAccounts' || op === 'migrateSettings' || op === 'migrateCategories' || op === 'migrateAuditLogs' || op === 'migrateStaffInvitations' || op === 'resetCustomerBalances' || op === 'cleanupTestWhatsapp' || op === 'migrateTimezoneBrasilia') {
