@@ -450,6 +450,19 @@ export async function pgCount(key, ref, table, filters) {
   return Number.isFinite(total) ? total : 0;
 }
 
+// Chama uma função Postgres via PostgREST (/rpc/<fn>). Rota rápida — evita a
+// Management API (/database/query), que é lenta e tem rate-limit.
+export async function pgRpc(key, ref, fn, args) {
+  const res = await fetch(pgUrl(ref, `rpc/${fn}`), {
+    method: 'POST',
+    headers: pgHeaders(key),
+    body: JSON.stringify(args || {}),
+  });
+  if (!res.ok) throw new Error(`pgRpc ${fn} (${res.status}): ${await res.text()}`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
 export async function pgInsert(key, ref, table, data) {
   const res = await fetch(pgUrl(ref, table), {
     method: 'POST',
