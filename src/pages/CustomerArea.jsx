@@ -5,6 +5,7 @@ import Sale from '@/lib/salesDb';
 import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate, formatPhone, getCustomerForUser } from '@/lib/cashbackUtils';
+import { validateCustomerForm } from '@/lib/validators';
 import { Wallet, Clock, QrCode, User, Check, ShoppingBag, AlertTriangle, RefreshCw } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import DeleteAccountModal from '@/components/customer/DeleteAccountModal';
@@ -22,6 +23,7 @@ export default function CustomerArea() {
   const [tab, setTab] = useRouteCache('tab', 'saldo');
   const [setupMode, setSetupMode] = useState(false);
   const [setupForm, setSetupForm] = useState({ name: user?.full_name || '', phone: '', cpf: '' });
+  const [setupError, setSetupError] = useState('');
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState(null);
   const [showDelete, setShowDelete] = useState(false);
@@ -50,7 +52,9 @@ export default function CustomerArea() {
   const { pullDistance, refreshing, onTouchStart, onTouchMove, onTouchEnd } = usePullToRefresh(loadData);
 
   const handleSetup = async () => {
-    if (!setupForm.name || !setupForm.phone) return;
+    const errs = validateCustomerForm({ ...setupForm, email: '' });
+    if (Object.keys(errs).length) { setSetupError(Object.values(errs)[0]); return; }
+    setSetupError('');
     setSaving(true);
     try {
       const { cpfToIdentifierCode } = await import('@/lib/cashbackUtils');
@@ -119,6 +123,7 @@ export default function CustomerArea() {
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
             </div>
           </div>
+          {setupError && <p className="text-xs text-red-600 mt-3">{setupError}</p>}
           <button onClick={handleSetup} disabled={saving || !setupForm.name || !setupForm.phone || !setupForm.cpf}
             className="w-full mt-5 py-3 bg-orange-500 text-white font-bold rounded-xl disabled:opacity-60">
             {saving ? 'Salvando...' : 'Salvar'}
