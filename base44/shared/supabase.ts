@@ -21,12 +21,43 @@ let cachedKey = null;
 let cachedKeyRef = null;
 
 // Obtém a conexão OAuth do conector Supabase (token de acesso).
-export async function getConnection(base44) {
+// Cache da conexão Supabase por isolate (TTL curto). Evita 1 ida ao Base44 por
+// leitura só para obter o mesmo accessToken.
+let _cachedConn = null;
+let _cachedConnAt = 0;
+const CONN_TTL_MS = 5 * 60 * 1000;
+
+export async function getConnection(base44, opts = {}) {
+  const now = Date.now();
+  if (!opts.force && _cachedConn && (now - _cachedConnAt) < CONN_TTL_MS) return _cachedConn;
   const conn = await base44.asServiceRole.connectors.getConnection('supabase');
   if (!conn || !conn.accessToken) {
     throw new Error('Supabase não conectado. Autorize o conector Supabase no painel da aplicação.');
   }
+  _cachedConn = conn;
+  _cachedConnAt = now;
   return conn;
+}
+
+// Cache de base44.auth.me() por isolate, com TTL de 60s e chave no header de
+// autorização EXATO. Sem header => não cacheia (nunca serve identidade errada).
+const _meCache = new Map();
+const ME_TTL_MS = 60 * 1000;
+
+export async function authMe(base44, req) {
+  let hdr = '';
+  try { hdr = req.headers.get('authorization') || req.headers.get('Authorization') || ''; } catch { hdr = ''; }
+  const now = Date.now();
+  if (hdr) {
+    const hit = _meCache.get(hdr);
+    if (hit && (now - hit.at) < ME_TTL_MS) return hit.user;
+  }
+  const user = await base44.auth.me().catch(() => null);
+  if (hdr && user) {
+    if (_meCache.size > 300) _meCache.clear();
+    _meCache.set(hdr, { user, at: now });
+  }
+  return user;
 }
 
 // Project ref estável do projeto "Cashback" no Supabase.
