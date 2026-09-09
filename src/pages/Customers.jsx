@@ -11,12 +11,21 @@ import SuccessModal from '@/components/SuccessModal';
 const norm = (v) => String(v || '').toLowerCase().replace(/[^0-9a-z]/g, '');
 
 // Busca clientes potencialmente duplicados por CPF, telefone ou e-mail.
-async function findDuplicateCustomers(form, existing) {
+// Consulta server-side (varre a base toda), não só o que está carregado na tela.
+async function findDuplicateCustomers(form) {
   const cpfN = norm(form.cpf);
   const phoneN = norm(form.phone);
   const emailN = norm(form.email);
-  const pool = existing && existing.length ? existing : await Customer.list('-created_date', 500);
-  return (pool || [])
+  const terms = [];
+  if (cpfN.length >= 11) terms.push(form.cpf);
+  if (phoneN.length >= 10) terms.push(form.phone);
+  if (emailN) terms.push(form.email);
+  const byId = {};
+  for (const t of terms) {
+    const rows = await Customer.search(t, { extraFilters: { is_demo: false }, limit: 20 }).catch(() => []);
+    for (const c of (rows || [])) byId[c.id] = c;
+  }
+  return Object.values(byId)
     .filter(c => c.is_active !== false)
     .filter(c => {
       if (cpfN && norm(c.cpf) === cpfN && cpfN.length >= 11) return true;
@@ -108,6 +117,7 @@ export default function Customers() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [customers, setCustomers] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
@@ -119,18 +129,37 @@ export default function Customers() {
 
   useEffect(() => { loadCustomers(); }, []);
 
+  // Carga inicial: contagem real (server-side) + os 100 mais recentes p/ exibir.
   const loadCustomers = async () => {
     setLoading(true);
-    const data = await Customer.list('-created_date', 200);
-    setCustomers(data.filter(c => c.is_active !== false));
+    const [data, total] = await Promise.all([
+      Customer.list('-created_date', 100),
+      Customer.count({ is_demo: false }),
+    ]);
+    setCustomers((data || []).filter(c => c.is_active !== false));
+    setTotalCount(total || 0);
     setLoading(false);
   };
 
-  const filtered = customers.filter(c =>
-    !c.is_demo &&
-    (c.name?.toLowerCase().includes(search.toLowerCase()) ||
-     c.phone?.includes(search.replace(/\D/g, '')))
-  );
+  // Busca digitada vai para o servidor (varre a base toda, não só os 100 mais
+  // recentes). Ao limpar o campo, recarrega a lista padrão.
+  useEffect(() => {
+    const term = search.trim();
+    if (term.length < 2) {
+      if (!loading) loadCustomers();
+      return;
+    }
+    const h = setTimeout(async () => {
+      try {
+        const rows = await Customer.search(term, { extraFilters: { is_demo: false }, limit: 50 });
+        setCustomers((rows || []).filter(c => c.is_active !== false));
+      } catch (e) { console.error(e); }
+    }, 300);
+    return () => clearTimeout(h);
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isSearching = search.trim().length >= 2;
+  const filtered = customers.filter(c => !c.is_demo && c.is_active !== false);
 
   // Cria o cliente de fato e exibe a tela de sucesso com os dados criados.
   const doCreateCustomer = async (form) => {
@@ -183,7 +212,7 @@ export default function Customers() {
       } else {
         // NOVO cliente: checa duplicidade (CPF/telefone/e-mail) antes de criar.
         setDuplicateChecking(true);
-        const matches = await findDuplicateCustomers(form, customers);
+        const matches = await findDuplicateCustomers(form);
         setDuplicateChecking(false);
         if (matches.length > 0) {
           // Possível duplicata — pede confirmação explícita antes de cadastrar.
@@ -202,8 +231,10 @@ export default function Customers() {
   const closeSuccess = () => setCreatedCustomer(null);
   const startAnother = () => { setCreatedCustomer(null); setEditCustomer(null); setModal('new'); };
 
-  const handleExport = () => {
-    exportToCSV(filtered, 'clientes.csv', [
+  const handleExport = async () => {
+    const all = await Customer.list('-created_date', 10000);
+    const rows = (all || []).filter(c => !c.is_demo && c.is_active !== false);
+    exportToCSV(rows, 'clientes.csv', [
       { key: 'name', label: 'Nome' },
       { key: 'phone', label: 'Telefone' },
       { key: 'email', label: 'E-mail' },
@@ -221,7 +252,9 @@ export default function Customers() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Clientes</h1>
-          <p className="text-gray-500 text-sm">{filtered.length} clientes</p>
+          <p className="text-gray-500 text-sm">
+            {isSearching ? `${filtered.length} resultado(s)` : `${totalCount} clientes`}
+          </p>
         </div>
         <div className="flex gap-2">
           <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">
