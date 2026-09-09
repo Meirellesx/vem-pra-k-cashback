@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import Customer from '@/lib/customersDb';
-import Sale from '@/lib/salesDb';
-import CashbackTransaction from '@/lib/cashbackTransactionsDb';
 import { useAuth } from '@/lib/AuthContext';
 import { formatCurrency, formatDate } from '@/lib/cashbackUtils';
+import { getDashboardStats } from '@/lib/statsDb';
 import { Users, ShoppingCart, TrendingUp, Wallet, Clock, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 function StatCard({ title, value, subtitle, icon: Icon, color, trend }) {
@@ -41,33 +38,18 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [customers, sales, transactions] = await Promise.all([
-        Customer.filter({ is_demo: false }),
-        Sale.filter({ is_demo: false }),
-        CashbackTransaction.filter({ is_demo: false }),
-      ]);
-
-      const today = new Date().toISOString().split('T')[0];
-      const todaySales = sales.filter(s => s.sale_date === today && s.status === 'concluida');
-
-      const totalCashbackGenerated = transactions.filter(t => t.type === 'gerado').reduce((a, b) => a + (b.amount || 0), 0);
-      const totalCashbackUsed = transactions.filter(t => t.type === 'utilizado').reduce((a, b) => a + (b.amount || 0), 0);
-      const pendingBalance = transactions.filter(t => t.status === 'pendente').reduce((a, b) => a + (b.amount || 0), 0);
-      const availableBalance = customers.reduce((a, b) => a + (b.available_balance || 0), 0);
-
+      const s = await getDashboardStats();
       setStats({
-        totalCustomers: customers.length,
-        totalSales: sales.filter(s => s.status === 'concluida').length,
-        todaySalesCount: todaySales.length,
-        todaySalesValue: todaySales.reduce((a, b) => a + (b.total_amount || 0), 0),
-        totalCashbackGenerated,
-        totalCashbackUsed,
-        pendingBalance,
-        availableBalance,
+        totalCustomers: s.totalCustomers || 0,
+        totalSales: s.totalSales || 0,
+        todaySalesCount: s.todaySalesCount || 0,
+        todaySalesValue: s.todaySalesValue || 0,
+        totalCashbackGenerated: s.totalCashbackGenerated || 0,
+        totalCashbackUsed: s.totalCashbackUsed || 0,
+        pendingBalance: s.pendingBalance || 0,
+        availableBalance: s.availableBalance || 0,
       });
-
-      const sorted = [...sales].sort((a, b) => new Date(b.created_date) - new Date(a.created_date)).slice(0, 5);
-      setRecentSales(sorted);
+      setRecentSales(s.recentSales || []);
     } catch (e) {
       console.error(e);
     } finally {
