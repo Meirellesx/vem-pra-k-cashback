@@ -24,6 +24,23 @@ export const Customer = {
     });
     return unwrap(res) || [];
   },
+  // Contagem server-side (não baixa as linhas). Retorna um número.
+  count: async (filters) => {
+    const res = await base44.functions.invoke('supabase-data', {
+      table: 'customers', op: 'count', filters,
+    });
+    return unwrap(res) || 0;
+  },
+  // Busca textual server-side (nome/telefone/CPF/código/e-mail) — varre a base
+  // toda, não só os mais recentes.
+  search: async (q, { extraFilters, sort = '-created_date', limit = 20 } = {}) => {
+    const res = await base44.functions.invoke('supabase-data', {
+      table: 'customers', op: 'search', q,
+      columns: ['name', 'phone', 'cpf', 'identifier_code', 'email'],
+      extra_filters: extraFilters, sort, limit,
+    });
+    return unwrap(res) || [];
+  },
   get: async (id) => {
     const res = await base44.functions.invoke('supabase-data', {
       table: 'customers', op: 'get', id,
