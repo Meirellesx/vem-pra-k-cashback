@@ -42,7 +42,7 @@ function CustomerModal({ customer, onClose, onSave }) {
   const [errors, setErrors] = useState({});
 
   const handleSave = async () => {
-    const errs = validateCustomerForm(form, { requireEmail: !customer });
+    const errs = validateCustomerForm(form, { requireEmail: false });
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setSaving(true);
@@ -75,15 +75,13 @@ function CustomerModal({ customer, onClose, onSave }) {
             {errors.phone && <p className="text-xs text-red-600 mt-1">{errors.phone}</p>}
           </div>
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              E-mail {!customer && <span className="text-orange-500">*</span>}
-            </label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">E-mail <span className="text-gray-400 font-normal">(opcional)</span></label>
             <input type="email" value={form.email || ''} onChange={e => setForm({...form, email: e.target.value})}
               placeholder="email@exemplo.com"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
             {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
             {!customer && (
-              <p className="text-xs text-orange-600 mt-1">O cliente receberá um e-mail para criar sua senha e acessar a plataforma.</p>
+              <p className="text-xs text-gray-400 mt-1">Se informado, o cliente recebe um e-mail para criar a senha e acessar a plataforma.</p>
             )}
           </div>
           <div>
@@ -110,7 +108,7 @@ function CustomerModal({ customer, onClose, onSave }) {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancelar</button>
-          <button onClick={handleSave} disabled={saving || !form.name || !form.phone || !form.cpf || (!customer && !form.email)}
+          <button onClick={handleSave} disabled={saving || !form.name || !form.phone || !form.cpf}
             className="flex-1 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-xl text-sm font-bold">
             {saving ? 'Salvando...' : 'Salvar'}
           </button>
