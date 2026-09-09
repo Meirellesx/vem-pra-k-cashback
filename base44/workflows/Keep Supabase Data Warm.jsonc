@@ -1,0 +1,47 @@
+{
+  "name": "Keep Supabase Data Warm",
+  "description": "Ping a cada 5 min em hor\u00e1rio comercial (08h-21h) para manter a fun\u00e7\u00e3o supabase-data quente e o cache de conex\u00e3o aquecido \u2014 evita cold start nas telas.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/5 8-20 * * *",
+      "one_time_date": null,
+      "timezone": "America/Sao_Paulo",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "keep_supabase_data_warm",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "ping": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "supabase-data",
+            "args": {
+              "op": "ping"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Ping supabase-data",
+            "description": "Aquece o isolate e o cache de conex\u00e3o (op:'ping', sem exigir usu\u00e1rio)"
+          }
+        }
+      }
+    ]
+  }
+}
