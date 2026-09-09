@@ -1,9 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 import {
-  getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, runSql,
+  getConnection, getProjectRef, getServiceRoleKey, pgList, pgInsert, pgUpdate, pgRpc,
   insertCashbackNotification,
 } from '../../shared/supabase.ts';
-import { mirrorRow, patchNativeByLegacyId, mirrorCustomerFromSupabase } from '../../shared/nativeMirror.ts';
+import { mirrorRow, mirrorCustomerFromSupabase } from '../../shared/nativeMirror.ts';
 import { insertWhatsappOnCashbackGenerated } from '../../shared/cashbackWhatsapp.ts';
 
 // Registra uma venda + geração de cashback + atualização de saldo + auditoria
@@ -47,7 +47,7 @@ export default async function (req) {
       return Response.json({ error: `Venda #${sale_number} já foi registrada! Verifique o número.` }, { status: 409 });
     }
 
-    // 2. Cria a venda.
+    // 2. Cria a venda (fonte da verdade).
     const sale = await pgInsert(key, ref, 'sales', {
       sale_number,
       customer_id: customer_id || null,
@@ -66,30 +66,21 @@ export default async function (req) {
       is_demo: !!is_demo,
       created_by_id: user.id,
     });
-    await mirrorRow(base44, 'sales', sale);
 
-    // 2.5. Denormaliza a data da última compra do cliente (fluxo de inatividade do
-    //      n8n lê só customers). GREATEST evita retroceder se registrarem venda antiga.
-    if (customer_id) {
-      const saleDateExpr = /^\d{4}-\d{2}-\d{2}$/.test(String(sale_date))
-        ? `'${sale_date}'::timestamptz`
-        : "(timezone('UTC', now() AT TIME ZONE 'America/Sao_Paulo'))";
-      await runSql(conn.accessToken, ref,
-        `UPDATE customers SET last_purchase_at = GREATEST(COALESCE(last_purchase_at, '1970-01-01'::timestamptz), ${saleDateExpr}) WHERE id = '${customer_id}';`
-      ).catch((e) => { console.error('last_purchase_at update error:', e.message); });
-    }
-
+    const cbStatus = cashback_status || 'disponivel';
     let txId = null;
+    let tx = null;
+
     if (generate_cashback && cbAmount > 0 && customer_id) {
-      // 3. Cria a transação de cashback.
-      const tx = await pgInsert(key, ref, 'cashback_transactions', {
+      // 3. Cria a transação de cashback e vincula à venda.
+      tx = await pgInsert(key, ref, 'cashback_transactions', {
         customer_id,
         customer_name: customer_name || null,
         sale_id: sale.id,
         sale_number,
         amount: cbAmount,
         type: 'gerado',
-        status: cashback_status || 'disponivel',
+        status: cbStatus,
         used_amount: 0,
         transaction_date: sale_date,
         available_date: available_date || null,
@@ -99,42 +90,44 @@ export default async function (req) {
         created_by_id: user.id,
       });
       txId = tx.id;
-
-      await mirrorRow(base44, 'cashback_transactions', tx);
-
-      // 4. Atualiza o saldo do cliente (incremento atômico via SQL).
-      const col = cashback_status === 'disponivel' ? 'available_balance' : 'pending_balance';
-      await runSql(conn.accessToken, ref,
-        `UPDATE customers SET ${col} = ${col} + ${cbAmount}, total_cashback_earned = total_cashback_earned + ${cbAmount} WHERE id = '${customer_id}';`);
-      await mirrorCustomerFromSupabase(base44, key, ref, customer_id);
-
-      // 5. Vincula a transação à venda.
       await pgUpdate(key, ref, 'sales', sale.id, { cashback_transaction_id: txId });
-      await patchNativeByLegacyId(base44, 'sales', sale.id, { cashback_transaction_id: txId, cashback_generated: true });
+    }
 
-      // 5.5. Alimenta a tabela operacional cashback_whatsapp (futura integração
-      //      n8n/Avisa). Nenhum envio de mensagem nesta etapa.
-      await insertWhatsappOnCashbackGenerated(conn.accessToken, key, ref, {
-        customer_id,
-        customer_name: customer_name || '',
-        sale_id: sale.id,
-        cashback_id_origem: txId,
-        valor_compra: num(total_amount),
-        valor_cashback_gerado: cbAmount,
-        expiry_date: expiry_date || null,
-        is_demo: !!is_demo,
-      }).catch((e) => { console.error('cashback_whatsapp insert error:', e.message); });
+    // 4. Cliente: saldo + last_purchase_at numa única RPC rápida (PostgREST).
+    //    Cobre venda sem cashback (p_cashback = 0 → só atualiza last_purchase_at).
+    if (customer_id) {
+      await pgRpc(key, ref, 'apply_sale_to_customer', {
+        p_customer_id: customer_id,
+        p_cashback: txId ? cbAmount : 0,
+        p_status: cbStatus,
+        p_sale_date: /^\d{4}-\d{2}-\d{2}$/.test(String(sale_date)) ? sale_date : null,
+      }).catch((e) => { console.error('apply_sale_to_customer error:', e.message); });
+    }
 
-      // 6. Cria a notificação in-app de cashback gerado (o bot apresenta ao cliente).
-      const notif = await insertCashbackNotification(key, ref, {
-        customer_id,
-        customer_name: customer_name || '',
-        event: 'gerado',
-        amount: cbAmount,
-        available_date: available_date || null,
-        is_demo: !!is_demo,
-      }).catch(() => null);
-      if (notif) await mirrorRow(base44, 'notifications', notif);
+    // 5. Efeitos colaterais independentes, em paralelo.
+    let notif = null;
+    if (txId) {
+      const [, notifRes] = await Promise.all([
+        insertWhatsappOnCashbackGenerated(conn.accessToken, key, ref, {
+          customer_id,
+          customer_name: customer_name || '',
+          sale_id: sale.id,
+          cashback_id_origem: txId,
+          valor_compra: num(total_amount),
+          valor_cashback_gerado: cbAmount,
+          expiry_date: expiry_date || null,
+          is_demo: !!is_demo,
+        }).catch((e) => { console.error('cashback_whatsapp insert error:', e.message); return null; }),
+        insertCashbackNotification(key, ref, {
+          customer_id,
+          customer_name: customer_name || '',
+          event: 'gerado',
+          amount: cbAmount,
+          available_date: available_date || null,
+          is_demo: !!is_demo,
+        }).catch(() => null),
+      ]);
+      notif = notifRes;
     }
 
     // 6. Auditoria.
@@ -153,7 +146,24 @@ export default async function (req) {
       is_demo: !!is_demo,
       created_by_id: user.id,
     } as any);
-    await mirrorRow(base44, 'audit_logs', audit);
+
+    // 7. Espelho para o Base44 nativo — BACKUP best-effort, fora do caminho
+    //    crítico: todos em paralelo (antes eram ~12 chamadas em fila).
+    const saleForMirror = txId
+      ? { ...sale, cashback_transaction_id: txId, cashback_generated: true }
+      : sale;
+    const mirrors = [
+      mirrorRow(base44, 'sales', saleForMirror),
+      mirrorRow(base44, 'audit_logs', audit),
+    ];
+    if (txId) {
+      mirrors.push(
+        mirrorRow(base44, 'cashback_transactions', tx),
+        mirrorCustomerFromSupabase(base44, key, ref, customer_id),
+      );
+      if (notif) mirrors.push(mirrorRow(base44, 'notifications', notif));
+    }
+    await Promise.allSettled(mirrors);
 
     return Response.json({ sale, cashback_transaction_id: txId, cashback_amount: cbAmount });
   } catch (error) {
