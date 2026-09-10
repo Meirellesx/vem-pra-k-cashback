@@ -44,8 +44,9 @@ export default function CashbackLookup() {
     setSearch(q);
     if (q.length < 2) { setSearchResults([]); return; }
     const cleaned = q.replace(/\D/g, '');
-    const all = await Customer.list('-created_date', 100);
-    const results = all.filter(c => !c.is_demo && c.is_active !== false && (
+    // Busca server-side (varre TODA a base, nao so os 100 mais recentes).
+    const all = await Customer.search(q, { extraFilters: { is_demo: false, is_active: true }, limit: 20 }).catch(() => []);
+    const results = (all || []).filter(c => !c.is_demo && c.is_active !== false && (
       c.name?.toLowerCase().includes(q.toLowerCase()) ||
       c.email?.toLowerCase().includes(q.toLowerCase()) ||
       (cleaned && c.phone?.replace(/\D/g, '').includes(cleaned)) ||
